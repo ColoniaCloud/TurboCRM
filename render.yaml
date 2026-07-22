@@ -1,0 +1,90 @@
+# Blueprint de Render para apps/api y apps/whatsapp — apps/web queda en
+# Vercel (ver DECISIONS.md). Las variables marcadas "sync: false" NO se
+# guardan acá (nunca van al repo) — se cargan a mano una vez en el
+# dashboard de Render, igual que hoy viven en apps/api/.env y
+# apps/whatsapp/.env.
+#
+# Deploy: crear cuenta en render.com → New → Blueprint → conectar este repo
+# → Render lee este archivo y propone ambos servicios → completar las env
+# vars marcadas sync:false → Apply. Cada push a main vuelve a desplegar
+# automáticamente.
+#
+# IMPORTANTE — apps/whatsapp necesita disco persistente para la sesión de
+# Baileys (whatsapp-sessions/). El plan "free" de Render NO soporta discos
+# persistentes: sin uno, cada redeploy borra la sesión y hay que volver a
+# escanear el QR. El bloque "disk" de abajo requiere plan "starter" o
+# superior — subir el plan de crm-whatsapp antes de usarlo en producción.
+
+services:
+  - type: web
+    name: crm-api
+    runtime: node
+    plan: free
+    region: virginia
+    branch: main
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm --filter @colonia-crm/api build
+    startCommand: pnpm --filter @colonia-crm/api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # URL pública de esta misma API (https://crm-api-xxxx.onrender.com,
+      # hasta que crm-api.colonia.cloud tenga el DNS apuntado).
+      - key: API_PUBLIC_URL
+        sync: false
+      # Origen(es) del frontend en Vercel, separados por coma — usado para
+      # CORS y trustedOrigins de Better Auth.
+      - key: WEB_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      # Fase de enriquecimiento de leads con IA
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Fase de scraping de prospección
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      # Email corporativo (Hostinger) — host/puerto no son secretos, pero
+      # sync:false igual para poder ajustarlos sin tocar el repo.
+      - key: EMAIL_IMAP_HOST
+        value: imap.hostinger.com
+      - key: EMAIL_IMAP_PORT
+        value: "993"
+      - key: EMAIL_SMTP_HOST
+        value: smtp.hostinger.com
+      - key: EMAIL_SMTP_PORT
+        value: "465"
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      # URL interna del servicio crm-whatsapp de abajo.
+      - key: WHATSAPP_SERVICE_URL
+        sync: false
+      # Mismo secreto en ambos servicios — ver crm-whatsapp más abajo.
+      - key: WHATSAPP_INTERNAL_SECRET
+        sync: false
+
+  - type: web
+    name: crm-whatsapp
+    runtime: node
+    plan: free
+    region: virginia
+    branch: main
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm --filter @colonia-crm/whatsapp build
+    startCommand: pnpm --filter @colonia-crm/whatsapp start
+    healthCheckPath: /health
+    disk:
+      name: whatsapp-sessions
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: WHATSAPP_SESSION_PATH
+        value: /data/whatsapp-sessions
+      # Mismo valor que WHATSAPP_INTERNAL_SECRET en crm-api.
+      - key: WHATSAPP_INTERNAL_SECRET
+        sync: false

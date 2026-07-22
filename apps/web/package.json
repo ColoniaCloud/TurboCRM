@@ -1,0 +1,27 @@
+{
+  "name": "@colonia-crm/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3010",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@colonia-crm/shared": "workspace:*",
+    "better-auth": "^1.2.0",
+    "next": "^15.0.0",
+    "papaparse": "^5.5.4",
+    "react": "^19.0.0",
+    "react-aria-components": "^1.7.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.5.0"
+  }
+}

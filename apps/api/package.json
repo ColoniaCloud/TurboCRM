@@ -1,0 +1,38 @@
+{
+  "name": "@colonia-crm/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=--use-system-ca tsx watch --env-file=.env src/index.ts",
+    "build": "tsc",
+    "start": "cross-env NODE_OPTIONS=--use-system-ca node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@colonia-crm/shared": "workspace:*",
+    "@hono/node-server": "latest",
+    "better-auth": "^1.2.0",
+    "bullmq": "latest",
+    "drizzle-orm": "^0.45.2",
+    "hono": "latest",
+    "imapflow": "^1.4.7",
+    "mailparser": "^3.9.14",
+    "nodemailer": "^9.0.3",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^20.0.0",
+    "@types/nodemailer": "^7.0.2",
+    "cross-env": "^7.0.3",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "latest",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.10"
+  }
+}
