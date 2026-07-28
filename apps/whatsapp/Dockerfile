@@ -2,6 +2,9 @@
 # syntax=docker/dockerfile:1
 
 FROM node:20-slim AS base
+# git es necesario: baileys depende de libsignal-node directo desde GitHub
+# (no publicado en npm), pnpm necesita el binario para resolverlo.
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /repo
 

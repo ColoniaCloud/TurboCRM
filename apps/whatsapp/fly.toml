@@ -6,7 +6,7 @@ app = "colonia-crm-whatsapp"
 primary_region = "gru"
 
 [build]
-  dockerfile = "apps/whatsapp/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   NODE_ENV = "production"
