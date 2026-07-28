@@ -28,6 +28,13 @@ type ReminderItem = {
   taskCreatedId: string | null
 }
 
+type EnvVarItem = {
+  id: string
+  name: string
+  value: string
+  createdAt: string
+}
+
 const KIND_LABELS: Record<ProjectReminderKind, string> = {
   hosting: 'Hosting',
   domain: 'Dominio',
@@ -44,6 +51,10 @@ const RECURRENCE_LABELS: Record<ProjectReminderRecurrence, string> = {
 }
 
 function formatDueDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-UY', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function formatCreatedAt(iso: string): string {
   return new Date(iso).toLocaleDateString('es-UY', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -85,6 +96,12 @@ export default function ProjectDetailPage() {
   const [reminderRecurrence, setReminderRecurrence] = useState<ProjectReminderRecurrence>('none')
   const [reminderDaysBefore, setReminderDaysBefore] = useState('7')
 
+  const [envVars, setEnvVars]                 = useState<EnvVarItem[] | null>(null)
+  const [envVarsError, setEnvVarsError]       = useState<string | null>(null)
+  const [creatingEnvVar, setCreatingEnvVar]   = useState(false)
+  const [newEnvVarName, setNewEnvVarName]     = useState('')
+  const [newEnvVarValue, setNewEnvVarValue]   = useState('')
+
   useEffect(() => {
     let cancelled = false
 
@@ -125,6 +142,21 @@ export default function ProjectDetailPage() {
     let cancelled = false
 
     loadReminders().catch(() => { if (!cancelled) setRemindersError('No se pudieron cargar los vencimientos') })
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiFetch, projectId])
+
+  async function loadEnvVars() {
+    const res = await apiFetch(`/api/projects/${projectId}/env-vars`)
+    const data = await res.json() as { items: EnvVarItem[] }
+    setEnvVars(data.items)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadEnvVars().catch(() => { if (!cancelled) setEnvVarsError('No se pudieron cargar las variables de entorno') })
 
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,6 +280,41 @@ export default function ProjectDetailPage() {
   async function handleDeleteReminder(reminderId: string) {
     await apiFetch(`/api/projects/${projectId}/reminders/${reminderId}`, { method: 'DELETE' })
     await loadReminders()
+  }
+
+  async function handleCreateEnvVar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const name = newEnvVarName.trim()
+    const value = newEnvVarValue.trim()
+    if (!name || !value) return
+
+    setCreatingEnvVar(true)
+    setEnvVarsError(null)
+
+    try {
+      const res = await apiFetch(`/api/projects/${projectId}/env-vars`, {
+        method: 'POST',
+        body: JSON.stringify({ name, value }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null
+        throw new Error(body?.error ?? 'No se pudo crear la variable de entorno')
+      }
+
+      setNewEnvVarName('')
+      setNewEnvVarValue('')
+      await loadEnvVars()
+    } catch (err) {
+      setEnvVarsError(err instanceof Error ? err.message : 'No se pudo crear la variable de entorno')
+    } finally {
+      setCreatingEnvVar(false)
+    }
+  }
+
+  async function handleDeleteEnvVar(envVarId: string) {
+    await apiFetch(`/api/projects/${projectId}/env-vars/${envVarId}`, { method: 'DELETE' })
+    await loadEnvVars()
   }
 
   async function handleDelete() {
@@ -482,6 +549,67 @@ export default function ProjectDetailPage() {
           </div>
           <button type="submit" className="btn" disabled={creatingReminder}>
             {creatingReminder ? 'Agregando…' : 'Agregar vencimiento'}
+          </button>
+        </form>
+      </div>
+
+      <div className="panel">
+        <h2>Variables de entorno</h2>
+
+        {envVarsError && (
+          <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{envVarsError}</div>
+        )}
+
+        {!envVars ? (
+          <p className="empty-state">Cargando…</p>
+        ) : envVars.length === 0 ? (
+          <p className="empty-state">Todavía no hay variables de entorno cargadas.</p>
+        ) : (
+          <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Valor</th>
+                  <th>Creada</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {envVars.map((envVar) => (
+                  <tr key={envVar.id}>
+                    <td>{envVar.name}</td>
+                    <td>{envVar.value}</td>
+                    <td>{formatCreatedAt(envVar.createdAt)}</td>
+                    <td><button className="link-danger" onClick={() => handleDeleteEnvVar(envVar.id)}>Eliminar</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <form className="inline-form" onSubmit={handleCreateEnvVar}>
+          <div className="inline-field">
+            <label htmlFor="env-var-name">Nombre</label>
+            <input
+              id="env-var-name" required
+              value={newEnvVarName}
+              onChange={(e) => setNewEnvVarName(e.target.value)}
+              placeholder="DATABASE_URL"
+            />
+          </div>
+          <div className="inline-field">
+            <label htmlFor="env-var-value">Valor</label>
+            <input
+              id="env-var-value" required
+              value={newEnvVarValue}
+              onChange={(e) => setNewEnvVarValue(e.target.value)}
+              placeholder="postgres://…"
+            />
+          </div>
+          <button type="submit" className="btn" disabled={creatingEnvVar || !newEnvVarName.trim() || !newEnvVarValue.trim()}>
+            {creatingEnvVar ? 'Agregando…' : 'Agregar variable'}
           </button>
         </form>
       </div>

@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db'
-import { projects, projectReminders, contacts } from '../db/schema'
+import { projects, projectReminders, projectEnvVars, contacts } from '../db/schema'
 import { authMiddleware } from '../middleware/auth'
 import { logActivity } from '../contacts/activity-log'
 import type { HonoVariables } from '../types'
@@ -28,6 +28,11 @@ type ReminderBody = Partial<{
   dueDate: string
   recurrence: ProjectReminderRecurrence
   reminderDaysBefore: number
+}>
+
+type EnvVarBody = Partial<{
+  name: string
+  value: string
 }>
 
 const projectsRoutes = new Hono<{ Variables: HonoVariables }>()
@@ -223,6 +228,52 @@ projectsRoutes.delete('/:id/reminders/:reminderId', async (c) => {
   }
 
   await db.delete(projectReminders).where(eq(projectReminders.id, reminderId))
+  return c.json({ status: 'ok' })
+})
+
+projectsRoutes.get('/:id/env-vars', async (c) => {
+  const projectId = c.req.param('id')
+  await findProjectOr404(projectId)
+
+  const rows = await db.query.projectEnvVars.findMany({
+    where: eq(projectEnvVars.projectId, projectId),
+    orderBy: desc(projectEnvVars.createdAt),
+  })
+
+  return c.json({ status: 'ok', items: rows })
+})
+
+projectsRoutes.post('/:id/env-vars', async (c) => {
+  const projectId = c.req.param('id')
+  await findProjectOr404(projectId)
+
+  const body = await c.req.json().catch(() => null) as EnvVarBody | null
+
+  const name = body?.name?.trim()
+  const value = body?.value?.trim()
+  if (!name) {
+    throw new HTTPException(400, { message: 'El nombre es requerido' })
+  }
+  if (!value) {
+    throw new HTTPException(400, { message: 'El valor es requerido' })
+  }
+
+  const [envVar] = await db.insert(projectEnvVars).values({ projectId, name, value }).returning()
+
+  return c.json({ status: 'ok', item: envVar }, 201)
+})
+
+projectsRoutes.delete('/:id/env-vars/:envVarId', async (c) => {
+  const projectId = c.req.param('id')
+  const envVarId = c.req.param('envVarId')
+  await findProjectOr404(projectId)
+
+  const existing = await db.query.projectEnvVars.findFirst({ where: eq(projectEnvVars.id, envVarId) })
+  if (!existing || existing.projectId !== projectId) {
+    throw new HTTPException(404, { message: 'Variable de entorno no encontrada' })
+  }
+
+  await db.delete(projectEnvVars).where(eq(projectEnvVars.id, envVarId))
   return c.json({ status: 'ok' })
 })
 
