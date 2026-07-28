@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@hono/node-server": "latest",
-    "baileys": "^6.7.0",
+    "baileys": "6.7.23",
     "hono": "latest",
     "pino": "^9.0.0",
     "qrcode": "^1.5.4"
