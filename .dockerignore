@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+.git
+**/.env
+**/.env.*
+!**/.env.example
+**/*.tsbuildinfo
+**/email-poll-state.json
+**/whatsapp-sessions
+.claude

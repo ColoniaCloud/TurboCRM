@@ -1,0 +1,36 @@
+# Deploy desde la raíz del repo:
+#   fly deploy --config apps/api/fly.toml .
+# (el "." final es el contexto de build = raíz del monorepo, necesario para
+# que el Dockerfile pueda instalar el workspace pnpm completo)
+
+app = "colonia-crm-api"
+primary_region = "gru"
+
+[build]
+  dockerfile = "apps/api/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  EMAIL_IMAP_HOST = "imap.hostinger.com"
+  EMAIL_IMAP_PORT = "993"
+  EMAIL_SMTP_HOST = "smtp.hostinger.com"
+  EMAIL_SMTP_PORT = "465"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
