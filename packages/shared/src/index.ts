@@ -24,6 +24,12 @@ export type CustomFieldEntityType = 'contact'
 export type PaymentStatus     = 'pending' | 'paid' | 'overdue' | 'cancelled'
 export type PaymentRecurrence = 'none' | 'monthly' | 'annual'
 
+// Vencimientos de un proyecto (hosting/dominio/mantenimiento) — recurrencia
+// propia, más granular que PaymentRecurrence (soporta "cada 3 meses" para
+// mantenimiento de plugins/paquetes) y sin acoplarse a los cobros a clientes.
+export type ProjectReminderKind       = 'hosting' | 'domain' | 'maintenance' | 'other'
+export type ProjectReminderRecurrence = 'none' | 'monthly' | 'quarterly' | 'biannual' | 'annual'
+
 // Timeline unificado del contacto. Los primeros 4 valores son los que esta
 // fase implementa; el resto queda declarado como preparación para fases
 // futuras (integración de WhatsApp, email, cobros y scraping/enriquecimiento).
@@ -38,3 +44,5 @@ export type ActivityType =
   | 'payment_received'
   | 'scrape_enriched'
   | 'audit_generated'
+  | 'project_created'
+  | 'project_reminder_due'

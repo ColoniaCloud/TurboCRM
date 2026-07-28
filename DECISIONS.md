@@ -5,6 +5,38 @@ Formato: contexto → decisión → razón.
 
 ---
 
+## 2026-07-23 — Módulo "Proyectos" por contacto (hosting, dominio, mantenimiento)
+
+**Contexto:** El admin necesitaba organizar, dentro de la ficha de cada
+cliente, el trabajo real entregado: plataforma usada, cuentas digitales
+asociadas (Analytics, Search Console, hosting, dominio) y vencimientos de
+hosting/dominio/mantenimiento.
+
+**Decisiones:**
+- Cada proyecto vive en su propia página (`/contacts/:id/projects/:projectId`),
+  mismo patrón lista→ficha que Contactos — no todo apilado en la ficha del
+  contacto, que ya era larga.
+- Vencimientos (`project_reminders`, tabla única con `kind`: hosting/domain/
+  maintenance/other, en vez de tres tablas casi idénticas) **auto-crean una
+  Tarea interna** cuando entran en su ventana de aviso — reutiliza el módulo
+  de Tareas ya existente. A diferencia de los recordatorios de pago
+  (`payments.ts`, que sí le escriben al cliente por WhatsApp/email), estos
+  vencimientos son gastos/mantenimiento propios de la agencia: no tiene
+  sentido notificar al cliente, así que NO se reutilizó el mecanismo de
+  `checkPaymentsAndSendReminders` — se construyó un poller paralelo
+  (`lib/project-reminders.ts`) que solo toca `tasks`.
+- Recurrencia propia (`ProjectReminderRecurrence`: none/monthly/quarterly/
+  biannual/annual) separada de `PaymentRecurrence`, para no acoplar el ciclo
+  de mantenimiento de un sitio (ej. trimestral) a los cobros a clientes.
+- El campo `accounts` de un proyecto (jsonb key/value) guarda **referencias/
+  etiquetas de qué cuenta se usa** (ej. "Google Analytics: cliente@gmail.com"),
+  nunca contraseñas — ese es un límite de seguridad explícito, no una
+  limitación técnica. Para borrar una entrada se manda el valor como string
+  vacío (mismo límite que ya tenía `contacts.customFields`: el PATCH solo
+  mergea, no soporta eliminar una key).
+
+---
+
 ## 2026-07-22 — Deploy: Vercel (web) + Render (API/WhatsApp), no Fly.io
 
 **Contexto:** Había que deployar el CRM. Se evaluó Vercel + Fly.io (propuesta

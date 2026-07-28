@@ -38,6 +38,13 @@ type FieldDefinition = {
   required: boolean
 }
 
+type ProjectListItem = {
+  id: string
+  name: string
+  platform: string | null
+  createdAt: string
+}
+
 type AuditItem = {
   id: string
   publicUrl: string
@@ -115,6 +122,12 @@ function describeActivity(activity: Activity): string {
   if (activity.type === 'audit_generated') {
     return `Auditoría digital generada: ${activity.content ?? ''}`
   }
+  if (activity.type === 'project_created') {
+    return activity.content ?? 'Proyecto creado'
+  }
+  if (activity.type === 'project_reminder_due') {
+    return `Vencimiento de proyecto: ${activity.content ?? ''}`
+  }
   return activity.content ?? 'Contacto actualizado'
 }
 
@@ -141,6 +154,12 @@ export default function ContactDetailPage() {
   const [newTagName, setNewTagName]     = useState('')
   const [creatingTag, setCreatingTag]   = useState(false)
   const [tagError, setTagError]         = useState<string | null>(null)
+
+  const [projectsList, setProjectsList]   = useState<ProjectListItem[] | null>(null)
+  const [projectsError, setProjectsError] = useState<string | null>(null)
+  const [newProjectName, setNewProjectName]         = useState('')
+  const [newProjectPlatform, setNewProjectPlatform] = useState('')
+  const [creatingProject, setCreatingProject]       = useState(false)
 
   const [customFieldDefs, setCustomFieldDefs] = useState<FieldDefinition[] | null>(null)
   const [fieldValues, setFieldValues]         = useState<Record<string, string | boolean>>({})
@@ -220,6 +239,45 @@ export default function ContactDetailPage() {
 
     return () => { cancelled = true }
   }, [apiFetch, id])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProjects() {
+      const res  = await apiFetch(`/api/projects?contactId=${id}`)
+      const data = await res.json() as { items: ProjectListItem[] }
+      if (!cancelled) setProjectsList(data.items)
+    }
+
+    loadProjects().catch(() => { if (!cancelled) setProjectsError('No se pudieron cargar los proyectos') })
+
+    return () => { cancelled = true }
+  }, [apiFetch, id])
+
+  async function handleCreateProject(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const name = newProjectName.trim()
+    if (!name) return
+
+    setCreatingProject(true)
+    setProjectsError(null)
+
+    try {
+      const res = await apiFetch('/api/projects', {
+        method: 'POST',
+        body: JSON.stringify({ contactId: id, name, platform: newProjectPlatform.trim() || undefined }),
+      })
+      const body = await res.json().catch(() => null) as { item?: ProjectListItem; error?: string } | null
+      if (!res.ok || !body?.item) {
+        throw new Error(body?.error ?? 'No se pudo crear el proyecto')
+      }
+      router.push(`/app/contacts/${id}/projects/${body.item.id}`)
+    } catch (err) {
+      setProjectsError(err instanceof Error ? err.message : 'No se pudo crear el proyecto')
+    } finally {
+      setCreatingProject(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -618,6 +676,61 @@ export default function ContactDetailPage() {
               </div>
               <button type="submit" className="btn" disabled={saving} style={{ alignSelf: 'flex-start' }}>
                 {saving ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </form>
+          </div>
+
+          <div className="panel">
+            <h2>Proyectos</h2>
+
+            {projectsError && (
+              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{projectsError}</div>
+            )}
+
+            {!projectsList ? (
+              <p className="empty-state">Cargando…</p>
+            ) : projectsList.length === 0 ? (
+              <p className="empty-state">Todavía no hay proyectos para este contacto.</p>
+            ) : (
+              <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Nombre</th><th>Plataforma</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {projectsList.map((project) => (
+                      <tr key={project.id}>
+                        <td>{project.name}</td>
+                        <td>{project.platform ?? '—'}</td>
+                        <td><Link href={`/app/contacts/${id}/projects/${project.id}`}>Ver</Link></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <form className="inline-form" onSubmit={handleCreateProject}>
+              <div className="inline-field">
+                <label htmlFor="new-project-name">Nombre</label>
+                <input
+                  id="new-project-name"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Sitio web, tienda online…"
+                />
+              </div>
+              <div className="inline-field">
+                <label htmlFor="new-project-platform">Plataforma</label>
+                <input
+                  id="new-project-platform"
+                  value={newProjectPlatform}
+                  onChange={(e) => setNewProjectPlatform(e.target.value)}
+                  placeholder="WordPress, Next.js…"
+                />
+              </div>
+              <button type="submit" className="btn" disabled={creatingProject || !newProjectName.trim()}>
+                {creatingProject ? 'Creando…' : 'Crear proyecto'}
               </button>
             </form>
           </div>

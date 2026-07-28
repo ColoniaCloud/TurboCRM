@@ -19,6 +19,8 @@ import { scrapingRoutes } from './routes/scraping'
 import { paymentsRoutes } from './routes/payments'
 import { startPaymentReminders } from './lib/payments'
 import { auditsRoutes, publicAuditsRoutes } from './routes/audits'
+import { projectsRoutes } from './routes/projects'
+import { startProjectReminderChecks } from './lib/project-reminders'
 
 const app = new Hono()
 
@@ -78,6 +80,7 @@ app.route('/api/scraping', scrapingRoutes)
 app.route('/api/payments', paymentsRoutes)
 app.route('/api/audits', auditsRoutes)
 app.route('/public/audits', publicAuditsRoutes)
+app.route('/api/projects', projectsRoutes)
 
 const port = Number(process.env.PORT) || 3001
 console.log(`API corriendo en http://localhost:${port}`)
@@ -85,5 +88,6 @@ console.log(`API corriendo en http://localhost:${port}`)
 serve({ fetch: app.fetch, port })
 startEmailPolling()
 startPaymentReminders()
+startProjectReminderChecks()
 
 export default app

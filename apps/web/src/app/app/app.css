@@ -590,6 +590,26 @@
 .pill-paid      { background: var(--color-success-subtle); color: var(--color-success); }
 .pill-cancelled { background: var(--color-surface-3);      color: var(--color-text-tertiary); }
 
+/* ── Vencimientos de proyecto ── */
+.pill-kind-hosting     { background: var(--color-info-subtle);    color: var(--color-info); }
+.pill-kind-domain      { background: var(--color-warning-subtle); color: var(--color-warning); }
+.pill-kind-maintenance { background: var(--color-success-subtle); color: var(--color-success); }
+.pill-kind-other       { background: var(--color-surface-3);      color: var(--color-text-tertiary); }
+
+/* ── Cuentas digitales (ficha de proyecto) ── */
+.account-list { list-style: none; display: flex; flex-direction: column; gap: var(--spacing-2); margin-bottom: var(--spacing-4); }
+.account-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+.account-item-label { font-weight: var(--font-weight-medium); color: var(--color-text); }
+.account-item-value { color: var(--color-text-secondary); flex: 1; }
+
 .empty-state {
   text-align: center;
   padding: var(--spacing-10);

@@ -4,6 +4,7 @@ import { eq, and, asc } from 'drizzle-orm'
 import { db } from '../db'
 import { tasks, contacts, deals } from '../db/schema'
 import { authMiddleware } from '../middleware/auth'
+import { handleRecurringReminderTaskDone } from '../lib/project-reminders'
 import type { HonoVariables } from '../types'
 
 type TaskBody = Partial<{
@@ -89,6 +90,10 @@ tasksRoutes.patch('/:id', async (c) => {
   if (body?.done !== undefined)        patch.done         = body.done
 
   const [updated] = await db.update(tasks).set(patch).where(eq(tasks.id, id)).returning()
+
+  if (body?.done === true) {
+    await handleRecurringReminderTaskDone(id)
+  }
 
   return c.json({ status: 'ok', item: updated })
 })
