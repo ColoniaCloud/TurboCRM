@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../../app-context'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 type EmailStatus = {
   status: 'ok'
@@ -57,43 +59,42 @@ export default function EmailSettingsPage() {
   }, [apiFetch])
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Email</h1>
-          <p>Estado de la conexión IMAP/SMTP que usa el CRM para enviar y recibir correos.</p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        Estado de la conexión IMAP/SMTP que usa el CRM para enviar y recibir correos.
+      </p>
 
-      <div className="panel">
-        {error && (
-          <div className="form-error" style={{ marginBottom: 'var(--spacing-4)' }}>{error}</div>
-        )}
+      <Card>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert>
+          )}
 
-        {!data ? (
-          <p className="empty-state">Cargando…</p>
-        ) : !data.configured ? (
-          <p className="empty-state">
-            El email todavía no está configurado — completá las variables EMAIL_IMAP_HOST, EMAIL_SMTP_HOST,
-            EMAIL_USER y EMAIL_PASSWORD en el .env del servidor.
-          </p>
-        ) : (
-          <div className="whatsapp-status">
-            <span className="whatsapp-status-connected">
-              <span className="whatsapp-status-dot" />
-              Conectado
-            </span>
-            {data.lastPollAt && (
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-                Última revisión del inbox: {formatDate(data.lastPollAt)}
-              </p>
-            )}
-            {data.lastPollError && (
-              <div className="form-error">{data.lastPollError}</div>
-            )}
-          </div>
-        )}
-      </div>
+          {!data ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
+          ) : !data.configured ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              El email todavía no está configurado — completá las variables EMAIL_IMAP_HOST, EMAIL_SMTP_HOST,
+              EMAIL_USER y EMAIL_PASSWORD en el .env del servidor.
+            </p>
+          ) : (
+            <div className="flex flex-col items-start gap-3">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <span className="size-2 rounded-full bg-primary" />
+                Conectado
+              </span>
+              {data.lastPollAt && (
+                <p className="text-sm text-muted-foreground">
+                  Última revisión del inbox: {formatDate(data.lastPollAt)}
+                </p>
+              )}
+              {data.lastPollError && (
+                <Alert variant="destructive"><AlertDescription>{data.lastPollError}</AlertDescription></Alert>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useApp } from '../app-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 type ScrapingStatus = {
   status: 'ok'
@@ -33,9 +40,9 @@ type EnrichedPlace = {
 type ImportResult = { created: number; skipped: number }
 
 function scoreClass(score: number): string {
-  if (score >= 4) return 'scraping-score-high'
-  if (score === 3) return 'scraping-score-mid'
-  return 'scraping-score-low'
+  if (score >= 4) return 'border-transparent bg-primary/15 text-primary-foreground dark:text-primary'
+  if (score === 3) return 'border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+  return 'border-transparent bg-destructive/10 text-destructive'
 }
 
 export default function ScrapingPage() {
@@ -188,173 +195,171 @@ export default function ScrapingPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Prospección</h1>
-          <p>Buscá negocios en Google Maps, analizalos con IA y importá los mejores prospectos como leads.</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <div>
+        <h1 className="text-xl font-semibold">Prospección</h1>
+        <p className="text-sm text-muted-foreground">Buscá negocios en Google Maps, analizalos con IA y importá los mejores prospectos como leads.</p>
       </div>
 
       {statusLoading ? (
-        <div className="panel">
-          <p className="empty-state">Cargando…</p>
-        </div>
+        <Card><CardContent><p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p></CardContent></Card>
       ) : statusError ? (
-        <div className="panel">
-          <div className="form-error">{statusError}</div>
-        </div>
+        <Card><CardContent><Alert variant="destructive"><AlertDescription>{statusError}</AlertDescription></Alert></CardContent></Card>
       ) : !configured ? (
-        <div className="panel">
-          <p className="empty-state">
-            La prospección automática todavía no está configurada — completá GOOGLE_MAPS_API_KEY y
-            ANTHROPIC_API_KEY en el .env del servidor.
-          </p>
-        </div>
+        <Card>
+          <CardContent>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              La prospección automática todavía no está configurada — completá GOOGLE_MAPS_API_KEY y
+              ANTHROPIC_API_KEY en el .env del servidor.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <>
-          <div className="panel">
-            <form onSubmit={handleSearch} className="inline-form">
-              <div className="inline-field">
-                <label htmlFor="scraping-query">¿Qué buscás?</label>
-                <input
-                  id="scraping-query"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="restaurantes en Colonia del Sacramento"
-                />
-              </div>
-              <button type="submit" className="btn" disabled={searching || !query.trim()}>
-                {searching ? 'Buscando…' : 'Buscar'}
-              </button>
-            </form>
+          <Card>
+            <CardContent>
+              <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-1 min-w-48 flex-col gap-1.5">
+                  <Label htmlFor="scraping-query">¿Qué buscás?</Label>
+                  <Input
+                    id="scraping-query"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="restaurantes en Colonia del Sacramento"
+                  />
+                </div>
+                <Button type="submit" disabled={searching || !query.trim()}>
+                  {searching ? 'Buscando…' : 'Buscar'}
+                </Button>
+              </form>
 
-            {searching && (
-              <p style={{ marginTop: 'var(--spacing-3)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-                Buscando y analizando con IA — esto puede tardar hasta un minuto…
-              </p>
-            )}
+              {searching && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Buscando y analizando con IA — esto puede tardar hasta un minuto…
+                </p>
+              )}
 
-            {searchError && (
-              <div className="form-error" style={{ marginTop: 'var(--spacing-3)' }}>{searchError}</div>
-            )}
-          </div>
+              {searchError && (
+                <Alert variant="destructive" className="mt-3"><AlertDescription>{searchError}</AlertDescription></Alert>
+              )}
+            </CardContent>
+          </Card>
 
           {results && (
-            <div className="panel">
-              <h2>Resultados ({results.length})</h2>
+            <Card>
+              <CardContent>
+                <h2 className="mb-3 text-base font-semibold">Resultados ({results.length})</h2>
 
-              {results.length === 0 ? (
-                <p className="empty-state">No se encontraron resultados para esa búsqueda.</p>
-              ) : (
-                <>
-                  <div className="bulk-toolbar">
-                    <button type="button" className="btn-ghost" onClick={selectAll}>Seleccionar todos</button>
-                    <button type="button" className="btn-ghost" onClick={deselectAll}>Deseleccionar todos</button>
-                    <button type="button" className="btn-ghost" onClick={selectHighScore}>Seleccionar score alto (4-5)</button>
-                    <span className="bulk-toolbar-count">{selected.size} seleccionado{selected.size === 1 ? '' : 's'}</span>
-                  </div>
+                {results.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">No se encontraron resultados para esa búsqueda.</p>
+                ) : (
+                  <>
+                    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3">
+                      <Button type="button" variant="outline" size="sm" onClick={selectAll}>Seleccionar todos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={deselectAll}>Deseleccionar todos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={selectHighScore}>Seleccionar score alto (4-5)</Button>
+                      <span className="text-sm font-medium">{selected.size} seleccionado{selected.size === 1 ? '' : 's'}</span>
+                    </div>
 
-                  <div className="scraping-results">
-                    {results.map((place) => (
-                      <div key={place.placeId} className="scraping-result-card">
-                        <input
-                          type="checkbox"
-                          className="scraping-result-checkbox"
-                          checked={selected.has(place.placeId)}
-                          onChange={() => toggleSelected(place.placeId)}
-                          aria-label={`Seleccionar ${place.name}`}
-                        />
+                    <div className="flex flex-col gap-3">
+                      {results.map((place) => (
+                        <div key={place.placeId} className="flex gap-3 rounded-lg border bg-background p-4">
+                          <Checkbox
+                            checked={selected.has(place.placeId)}
+                            onCheckedChange={() => toggleSelected(place.placeId)}
+                            aria-label={`Seleccionar ${place.name}`}
+                            className="mt-0.5"
+                          />
 
-                        <div className="scraping-result-body">
-                          <div className="scraping-result-header">
-                            <span className="scraping-result-name">{place.name}</span>
-                            {place.category && (
-                              <span className="scraping-result-category">{place.category}</span>
-                            )}
-                            {!place.website && (
-                              <span className="scraping-badge-no-website">Sin sitio web</span>
-                            )}
-                            {place.analysis && (
-                              <span className={`scraping-score ${scoreClass(place.analysis.score)}`}>
-                                Score {place.analysis.score}/5
-                              </span>
-                            )}
-                          </div>
+                          <div className="flex flex-1 flex-col gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{place.name}</span>
+                              {place.category && (
+                                <span className="text-sm text-muted-foreground">{place.category}</span>
+                              )}
+                              {!place.website && (
+                                <Badge variant="secondary">Sin sitio web</Badge>
+                              )}
+                              {place.analysis && (
+                                <Badge className={scoreClass(place.analysis.score)}>
+                                  Score {place.analysis.score}/5
+                                </Badge>
+                              )}
+                            </div>
 
-                          <div className="scraping-result-meta">
-                            <span>{place.address}</span>
-                            {place.phone && <span>{place.phone}</span>}
-                            {place.rating != null && (
-                              <span>
-                                {place.rating} ⭐{place.reviews != null ? ` (${place.reviews} reseñas)` : ''}
-                              </span>
-                            )}
-                            {place.email && <span>✉ {place.email}</span>}
-                          </div>
+                            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                              <span>{place.address}</span>
+                              {place.phone && <span>{place.phone}</span>}
+                              {place.rating != null && (
+                                <span>
+                                  {place.rating} ⭐{place.reviews != null ? ` (${place.reviews} reseñas)` : ''}
+                                </span>
+                              )}
+                              {place.email && <span>✉ {place.email}</span>}
+                            </div>
 
-                          <div className="scraping-result-links">
-                            {place.googleMapsUrl && (
-                              <a href={place.googleMapsUrl} target="_blank" rel="noopener noreferrer">
-                                Ver en Google Maps
-                              </a>
-                            )}
-                            {place.website && (
-                              <a href={place.website} target="_blank" rel="noopener noreferrer">
-                                Visitar sitio web
-                              </a>
-                            )}
-                            {place.socialLinks.map((link) => (
-                              <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer">
-                                {link.platform}
-                              </a>
-                            ))}
-                          </div>
+                            <div className="flex flex-wrap gap-3 text-sm">
+                              {place.googleMapsUrl && (
+                                <a href={place.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  Ver en Google Maps
+                                </a>
+                              )}
+                              {place.website && (
+                                <a href={place.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  Visitar sitio web
+                                </a>
+                              )}
+                              {place.socialLinks.map((link) => (
+                                <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  {link.platform}
+                                </a>
+                              ))}
+                            </div>
 
-                          {place.analysis ? (
-                            <>
-                              <p className="scraping-reasoning">{place.analysis.reasoning}</p>
-                              <div className="scraping-message">
-                                <p>{place.analysis.openingMessage}</p>
-                                <div className="scraping-message-actions">
-                                  <button
-                                    type="button"
-                                    className="btn-ghost"
-                                    onClick={() => handleCopy(place.placeId, place.analysis!.openingMessage)}
-                                  >
-                                    {copiedId === place.placeId ? 'Copiado' : 'Copiar mensaje'}
-                                  </button>
+                            {place.analysis ? (
+                              <>
+                                <p className="text-sm text-muted-foreground">{place.analysis.reasoning}</p>
+                                <div className="rounded-md bg-muted/50 p-3">
+                                  <p className="text-sm whitespace-pre-wrap">{place.analysis.openingMessage}</p>
+                                  <div className="mt-2 flex justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="outline" size="sm"
+                                      onClick={() => handleCopy(place.placeId, place.analysis!.openingMessage)}
+                                    >
+                                      {copiedId === place.placeId ? 'Copiado' : 'Copiar mensaje'}
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            </>
-                          ) : place.analysisError ? (
-                            <p className="scraping-analysis-error">No se pudo analizar este resultado</p>
-                          ) : null}
+                              </>
+                            ) : place.analysisError ? (
+                              <p className="text-sm text-muted-foreground">No se pudo analizar este resultado</p>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
 
-                  <div style={{ marginTop: 'var(--spacing-4)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-3)', alignItems: 'flex-start' }}>
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={selected.size === 0 || importing}
-                      onClick={handleImport}
-                    >
-                      {importing ? 'Importando…' : `Importar seleccionados (${selected.size})`}
-                    </button>
+                    <div className="mt-4 flex flex-col items-start gap-3">
+                      <Button
+                        type="button"
+                        disabled={selected.size === 0 || importing}
+                        onClick={handleImport}
+                      >
+                        {importing ? 'Importando…' : `Importar seleccionados (${selected.size})`}
+                      </Button>
 
-                    {importError && <div className="form-error">{importError}</div>}
-                    {importResult && (
-                      <p style={{ color: 'var(--color-success)', fontSize: 'var(--font-size-sm)' }}>
-                        Importados: {importResult.created} creado{importResult.created === 1 ? '' : 's'}, {importResult.skipped} omitido{importResult.skipped === 1 ? '' : 's'} (ya existían).
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+                      {importError && <Alert variant="destructive"><AlertDescription>{importError}</AlertDescription></Alert>}
+                      {importResult && (
+                        <p className="text-sm text-primary-foreground">
+                          Importados: {importResult.created} creado{importResult.created === 1 ? '' : 's'}, {importResult.skipped} omitido{importResult.skipped === 1 ? '' : 's'} (ya existían).
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           )}
         </>
       )}

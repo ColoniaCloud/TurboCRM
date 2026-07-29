@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { PaymentStatus, PaymentRecurrence } from '@colonia-crm/shared'
 import { useApp } from '../app-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 type Payment = {
   id: string
@@ -29,11 +39,20 @@ const STATUS_LABELS: Record<PaymentStatus, string> = {
   cancelled: 'Cancelado',
 }
 
+const STATUS_BADGE_CLASS: Record<PaymentStatus, string> = {
+  pending:   'border-transparent bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  overdue:   'border-transparent bg-destructive/10 text-destructive',
+  paid:      'border-transparent bg-primary/15 text-primary-foreground dark:text-primary',
+  cancelled: 'border-transparent bg-muted text-muted-foreground',
+}
+
 const RECURRENCE_LABELS: Record<PaymentRecurrence, string> = {
   none:    '—',
   monthly: 'Mensual',
   annual:  'Anual',
 }
+
+const ALL_STATUS = '__all__'
 
 function formatAmount(amount: string, currency: string) {
   const num = Number(amount)
@@ -137,153 +156,166 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Cobros</h1>
-          <p>Calendario de pagos con recordatorios automáticos.</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div>
+        <h1 className="text-xl font-semibold">Cobros</h1>
+        <p className="text-sm text-muted-foreground">Calendario de pagos con recordatorios automáticos.</p>
       </div>
 
-      <div className="panel">
-        <form className="inline-form" onSubmit={handleSubmit}>
-          <div className="inline-field">
-            <label htmlFor="payment-contact">Contacto</label>
-            <select
-              id="payment-contact" required
-              value={contactId} onChange={(e) => setContactId(e.target.value)}
-            >
-              <option value="">Seleccionar…</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="inline-field">
-            <label htmlFor="payment-description">Descripción</label>
-            <input
-              id="payment-description" required
-              value={description} onChange={(e) => setDescription(e.target.value)}
-              placeholder="Seña - Sitio esencial"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="payment-amount">Monto</label>
-            <input
-              id="payment-amount" type="number" min="0" step="0.01" required
-              value={amount} onChange={(e) => setAmount(e.target.value)}
-              placeholder="125.00"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="payment-currency">Moneda</label>
-            <select id="payment-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              <option value="USD">USD</option>
-              <option value="UYU">UYU</option>
-              <option value="ARS">ARS</option>
-              <option value="CLP">CLP</option>
-              <option value="BRL">BRL</option>
-            </select>
-          </div>
-          <div className="inline-field">
-            <label htmlFor="payment-due-date">Vencimiento</label>
-            <input
-              id="payment-due-date" type="date" required
-              value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="payment-recurrence">Recurrencia</label>
-            <select
-              id="payment-recurrence"
-              value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value as PaymentRecurrence)}
-            >
-              <option value="none">Ninguna</option>
-              <option value="monthly">Mensual</option>
-              <option value="annual">Anual</option>
-            </select>
-          </div>
-          <div className="inline-field">
-            <label htmlFor="payment-reminder-days">Avisar con cuántos días de anticipación</label>
-            <input
-              id="payment-reminder-days" type="number" min="0" step="1"
-              value={reminderDaysBefore} onChange={(e) => setReminderDaysBefore(e.target.value)}
-              placeholder="3"
-            />
-          </div>
-          <button type="submit" className="btn" disabled={submitting}>
-            {submitting ? 'Agregando…' : 'Agregar cobro'}
-          </button>
-        </form>
+      <Card>
+        <CardContent>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-contact">Contacto</Label>
+              <Select value={contactId} onValueChange={(v) => v && setContactId(v)}>
+                <SelectTrigger id="payment-contact" className="w-48">
+                  <SelectValue>{(v: string) => contacts.find((c) => c.id === v)?.name ?? 'Seleccionar…'}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>{contact.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-description">Descripción</Label>
+              <Input
+                id="payment-description" required
+                value={description} onChange={(e) => setDescription(e.target.value)}
+                placeholder="Seña - Sitio esencial"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-amount">Monto</Label>
+              <Input
+                id="payment-amount" type="number" min="0" step="0.01" required
+                value={amount} onChange={(e) => setAmount(e.target.value)}
+                placeholder="125.00"
+                className="w-28"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-currency">Moneda</Label>
+              <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
+                <SelectTrigger id="payment-currency" className="w-24"><SelectValue>{(v: string) => v}</SelectValue></SelectTrigger>
+                <SelectContent>
+                  {['USD', 'UYU', 'ARS', 'CLP', 'BRL'].map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-due-date">Vencimiento</Label>
+              <Input
+                id="payment-due-date" type="date" required
+                value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-recurrence">Recurrencia</Label>
+              <Select value={recurrence} onValueChange={(v) => v && setRecurrence(v as PaymentRecurrence)}>
+                <SelectTrigger id="payment-recurrence" className="w-32">
+                  <SelectValue>{(v: string) => RECURRENCE_LABELS[v as PaymentRecurrence] ?? v}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ninguna</SelectItem>
+                  <SelectItem value="monthly">Mensual</SelectItem>
+                  <SelectItem value="annual">Anual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payment-reminder-days">Avisar con cuántos días de anticipación</Label>
+              <Input
+                id="payment-reminder-days" type="number" min="0" step="1"
+                value={reminderDaysBefore} onChange={(e) => setReminderDaysBefore(e.target.value)}
+                placeholder="3"
+                className="w-20"
+              />
+            </div>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Agregando…' : 'Agregar cobro'}
+            </Button>
+          </form>
 
-        {error && (
-          <div className="form-error" style={{ marginTop: 'var(--spacing-4)' }}>{error}</div>
-        )}
-      </div>
+          {error && (
+            <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="panel">
-        <div className="inline-form" style={{ marginBottom: 'var(--spacing-4)' }}>
-          <div className="inline-field" style={{ flex: '0 0 160px' }}>
-            <label htmlFor="payment-status-filter">Estado</label>
-            <select
-              id="payment-status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Todos</option>
-              <option value="pending">Pendiente</option>
-              <option value="overdue">Vencido</option>
-              <option value="paid">Pagado</option>
-              <option value="cancelled">Cancelado</option>
-            </select>
-          </div>
-        </div>
-
-        {!payments ? (
-          <p className="empty-state">Cargando…</p>
-        ) : payments.length === 0 ? (
-          <p className="empty-state">Todavía no agregaste ningún cobro.</p>
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Contacto</th>
-                  <th>Descripción</th>
-                  <th>Monto</th>
-                  <th>Vencimiento</th>
-                  <th>Estado</th>
-                  <th>Recurrencia</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>
-                      {payment.contactName ? (
-                        <Link href={`/app/contacts/${payment.contactId}`}>{payment.contactName}</Link>
-                      ) : '—'}
-                    </td>
-                    <td>{payment.description}</td>
-                    <td>{formatAmount(payment.amount, payment.currency)}</td>
-                    <td>{formatDueDate(payment.dueDate)}</td>
-                    <td><span className={`pill pill-${payment.status}`}>{STATUS_LABELS[payment.status]}</span></td>
-                    <td>{RECURRENCE_LABELS[payment.recurrence]}</td>
-                    <td style={{ display: 'flex', gap: 'var(--spacing-2)' }}>
-                      {payment.status !== 'paid' && payment.status !== 'cancelled' && (
-                        <button className="btn-ghost" onClick={() => handleMarkPaid(payment.id)}>Marcar pagado</button>
-                      )}
-                      <button className="link-danger" onClick={() => handleDelete(payment.id)}>Eliminar</button>
-                    </td>
-                  </tr>
+      <Card>
+        <CardContent>
+          <div className="mb-4 flex flex-col gap-1.5">
+            <Label htmlFor="payment-status-filter">Estado</Label>
+            <Select value={statusFilter || ALL_STATUS} onValueChange={(v) => setStatusFilter(!v || v === ALL_STATUS ? '' : v)}>
+              <SelectTrigger id="payment-status-filter" className="w-44">
+                <SelectValue>{(v: string) => v === ALL_STATUS || !v ? 'Todos' : STATUS_LABELS[v as PaymentStatus]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_STATUS}>Todos</SelectItem>
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
-              </tbody>
-            </table>
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </div>
+
+          {!payments ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
+          ) : payments.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Todavía no agregaste ningún cobro.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Contacto</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Vencimiento</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Recurrencia</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>
+                        {payment.contactName ? (
+                          <Link href={`/app/contacts/${payment.contactId}`} className="hover:underline">{payment.contactName}</Link>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell>{payment.description}</TableCell>
+                      <TableCell>{formatAmount(payment.amount, payment.currency)}</TableCell>
+                      <TableCell>{formatDueDate(payment.dueDate)}</TableCell>
+                      <TableCell><Badge className={STATUS_BADGE_CLASS[payment.status]}>{STATUS_LABELS[payment.status]}</Badge></TableCell>
+                      <TableCell>{RECURRENCE_LABELS[payment.recurrence]}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {payment.status !== 'paid' && payment.status !== 'cancelled' && (
+                            <Button variant="outline" size="sm" onClick={() => handleMarkPaid(payment.id)}>Marcar pagado</Button>
+                          )}
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDelete(payment.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -6,6 +6,17 @@ import Link from 'next/link'
 import type { ProjectReminderKind, ProjectReminderRecurrence } from '@colonia-crm/shared'
 import { useApp } from '../../../../app-context'
 import { getApiUrl } from '@/lib/api-url'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 type Project = {
   id: string
@@ -471,265 +482,288 @@ export default function ProjectDetailPage() {
 
   if (notFound) {
     return (
-      <div className="page">
-        <p className="empty-state">Este proyecto no existe.</p>
-        <Link href={`/app/contacts/${id}`} className="btn-ghost" style={{ alignSelf: 'flex-start' }}>Volver al contacto</Link>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+        <p className="py-10 text-center text-sm text-muted-foreground">Este proyecto no existe.</p>
+        <Button variant="outline" className="self-start" nativeButton={false} render={<Link href={`/app/contacts/${id}`}>Volver al contacto</Link>} />
       </div>
     )
   }
 
   if (!project) {
     return (
-      <div className="page">
-        <p className="empty-state">Cargando…</p>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+        <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
       </div>
     )
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href={`/app/contacts/${id}`} className="back-link">← Volver al contacto</Link>
-          <h1>{project.name}</h1>
+          <Link href={`/app/contacts/${id}`} className="text-sm text-muted-foreground hover:underline">← Volver al contacto</Link>
+          <h1 className="text-xl font-semibold">{project.name}</h1>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-3)', alignItems: 'center' }}>
+        <div className="flex items-center gap-3">
           {mode === 'view' ? (
-            <button type="button" className="btn-ghost" onClick={() => setMode('edit')}>Editar</button>
+            <Button type="button" variant="outline" onClick={() => setMode('edit')}>Editar</Button>
           ) : (
-            <button type="button" className="btn-ghost" onClick={handleCancelEdit} disabled={saving}>Cancelar</button>
+            <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={saving}>Cancelar</Button>
           )}
-          <button className="link-danger" onClick={handleDelete} disabled={deleting}>
+          <Button
+            variant="ghost" className="text-muted-foreground hover:text-destructive"
+            onClick={handleDelete} disabled={deleting}
+          >
             {deleting ? 'Eliminando…' : 'Eliminar proyecto'}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {error && <div className="form-error">{error}</div>}
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-      <div className="panel">
-        <h2>Datos del proyecto</h2>
-        {mode === 'view' ? (
-          <div className="detail-summary-grid">
-            <div>
-              <div className="summary-field-label">Nombre</div>
-              <div className="summary-field-value">{project.name}</div>
-            </div>
-            <div>
-              <div className="summary-field-label">Plataforma</div>
-              <div className={`summary-field-value${project.platform ? '' : ' summary-field-value--empty'}`}>
-                {project.platform || 'Sin especificar'}
+      <Card>
+        <CardContent>
+          <h2 className="mb-3 text-base font-semibold">Datos del proyecto</h2>
+          {mode === 'view' ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <div className="mb-0.5 text-xs text-muted-foreground">Nombre</div>
+                <div className="text-sm">{project.name}</div>
+              </div>
+              <div>
+                <div className="mb-0.5 text-xs text-muted-foreground">Plataforma</div>
+                <div className={`text-sm ${project.platform ? '' : 'text-muted-foreground'}`}>
+                  {project.platform || 'Sin especificar'}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <div className="mb-0.5 text-xs text-muted-foreground">Sitio</div>
+                {project.url ? (
+                  <a className="text-sm hover:underline" href={project.url} target="_blank" rel="noreferrer">{project.url}</a>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Sin cargar</div>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <div className="mb-0.5 text-xs text-muted-foreground">Notas</div>
+                <div className={`whitespace-pre-wrap text-sm ${project.notes ? '' : 'text-muted-foreground'}`}>
+                  {project.notes || 'Sin notas'}
+                </div>
               </div>
             </div>
-            <div className="span-2">
-              <div className="summary-field-label">Sitio</div>
-              {project.url ? (
-                <a className="summary-field-value" href={project.url} target="_blank" rel="noreferrer">{project.url}</a>
-              ) : (
-                <div className="summary-field-value summary-field-value--empty">Sin cargar</div>
-              )}
-            </div>
-            <div className="span-2">
-              <div className="summary-field-label">Notas</div>
-              <div className={`summary-field-value${project.notes ? '' : ' summary-field-value--empty'}`}>
-                {project.notes || 'Sin notas'}
+          ) : (
+            <form onSubmit={handleSave} className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="project-name">Nombre</Label>
+                  <Input id="project-name" required value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="project-platform">Plataforma</Label>
+                  <Input
+                    id="project-platform"
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value)}
+                    placeholder="WordPress, Next.js, Shopify…"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <Label htmlFor="project-url">Sitio</Label>
+                  <Input id="project-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+                </div>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <Label htmlFor="project-notes">Notas</Label>
+                  <Textarea id="project-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </div>
               </div>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <div className="detail-form-grid">
-              <div className="inline-field">
-                <label htmlFor="project-name">Nombre</label>
-                <input id="project-name" required value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="inline-field">
-                <label htmlFor="project-platform">Plataforma</label>
-                <input
-                  id="project-platform"
-                  value={platform}
-                  onChange={(e) => setPlatform(e.target.value)}
-                  placeholder="WordPress, Next.js, Shopify…"
+              <Button type="submit" className="self-start" disabled={saving}>
+                {saving ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent>
+            <h2 className="text-base font-semibold">Cuentas digitales</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Referencias de qué cuenta se usa para cada servicio (ej. &quot;Google Analytics&quot; → email de la cuenta).
+              No guardes contraseñas acá — para credenciales reales usá tu gestor de contraseñas.
+            </p>
+
+            {accountsError && (
+              <Alert variant="destructive" className="mb-3"><AlertDescription>{accountsError}</AlertDescription></Alert>
+            )}
+
+            {!accounts ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+            ) : accounts.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Todavía no cargaste ninguna cuenta.</p>
+            ) : (
+              <ul className="mb-4 flex flex-col gap-3">
+                {accounts.map((account) => (
+                  <li key={account.id} className="flex flex-col gap-2 rounded-lg bg-muted/40 p-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{account.label}</span>
+                      <span className="flex-1 text-muted-foreground">{account.value}</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRemoveAccount(account.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {(filesByAccount[account.id] ?? []).length > 0 && (
+                      <ul className="flex flex-col gap-1">
+                        {filesByAccount[account.id]!.map((file) => (
+                          <li key={file.id} className="flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs">
+                            <a
+                              className="flex-1 truncate hover:underline"
+                              href={`${getApiUrl()}/api/projects/${projectId}/accounts/${account.id}/files/${file.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {file.fileName}
+                            </a>
+                            <span className="text-muted-foreground">{formatFileSize(file.fileSize)}</span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteFile(account.id, file.id)}
+                            >
+                              ✕
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      Adjuntar archivo (opcional, texto o PDF):
+                      <input
+                        type="file"
+                        accept={ACCOUNT_FILE_ACCEPT}
+                        disabled={uploadingAccountId === account.id}
+                        className="text-xs"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) void handleUploadFile(account.id, file)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <form className="flex flex-wrap items-end gap-4" onSubmit={handleAddAccount}>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="account-label">Servicio</Label>
+                <Input
+                  id="account-label"
+                  value={newAccountLabel}
+                  onChange={(e) => setNewAccountLabel(e.target.value)}
+                  placeholder="Google Analytics, Hosting…"
                 />
               </div>
-              <div className="inline-field span-2">
-                <label htmlFor="project-url">Sitio</label>
-                <input id="project-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="account-value">Cuenta / identificador</Label>
+                <Input
+                  id="account-value"
+                  value={newAccountValue}
+                  onChange={(e) => setNewAccountValue(e.target.value)}
+                  placeholder="cliente@gmail.com"
+                />
               </div>
-              <div className="inline-field span-2">
-                <label htmlFor="project-notes">Notas</label>
-                <textarea id="project-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <Button type="submit" variant="outline" disabled={savingAccount || !newAccountLabel.trim() || !newAccountValue.trim()}>
+                {savingAccount ? 'Agregando…' : 'Agregar'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <h2 className="mb-3 text-base font-semibold">Variables de entorno</h2>
+
+            {envVarsError && (
+              <Alert variant="destructive" className="mb-3"><AlertDescription>{envVarsError}</AlertDescription></Alert>
+            )}
+
+            {!envVars ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+            ) : envVars.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay variables de entorno cargadas.</p>
+            ) : (
+              <div className="mb-4 overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Creada</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {envVars.map((envVar) => (
+                      <TableRow key={envVar.id}>
+                        <TableCell>{envVar.name}</TableCell>
+                        <TableCell>{envVar.value}</TableCell>
+                        <TableCell>{formatCreatedAt(envVar.createdAt)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteEnvVar(envVar.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            </div>
-            <button type="submit" className="btn" disabled={saving} style={{ alignSelf: 'flex-start' }}>
-              {saving ? 'Guardando…' : 'Guardar cambios'}
-            </button>
-          </form>
-        )}
-      </div>
+            )}
 
-      <div className="project-columns">
-        <div className="panel">
-          <h2>Cuentas digitales</h2>
-          <p className="audit-intro">
-            Referencias de qué cuenta se usa para cada servicio (ej. "Google Analytics" → email de la cuenta).
-            No guardes contraseñas acá — para credenciales reales usá tu gestor de contraseñas.
-          </p>
+            <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateEnvVar}>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="env-var-name">Nombre</Label>
+                <Input
+                  id="env-var-name" required
+                  value={newEnvVarName}
+                  onChange={(e) => setNewEnvVarName(e.target.value)}
+                  placeholder="DATABASE_URL"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="env-var-value">Valor</Label>
+                <Input
+                  id="env-var-value" required
+                  value={newEnvVarValue}
+                  onChange={(e) => setNewEnvVarValue(e.target.value)}
+                  placeholder="postgres://…"
+                />
+              </div>
+              <Button type="submit" disabled={creatingEnvVar || !newEnvVarName.trim() || !newEnvVarValue.trim()}>
+                {creatingEnvVar ? 'Agregando…' : 'Agregar variable'}
+              </Button>
+            </form>
 
-          {accountsError && (
-            <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{accountsError}</div>
-          )}
-
-          {!accounts ? (
-            <p className="empty-state">Cargando…</p>
-          ) : accounts.length === 0 ? (
-            <p className="empty-state">Todavía no cargaste ninguna cuenta.</p>
-          ) : (
-            <ul className="account-list">
-              {accounts.map((account) => (
-                <li key={account.id} className="account-item">
-                  <div className="account-item-row">
-                    <span className="account-item-label">{account.label}</span>
-                    <span className="account-item-value">{account.value}</span>
-                    <button type="button" className="tag-chip-remove" onClick={() => handleRemoveAccount(account.id)}>✕</button>
-                  </div>
-
-                  {(filesByAccount[account.id] ?? []).length > 0 && (
-                    <ul className="account-files">
-                      {filesByAccount[account.id]!.map((file) => (
-                        <li key={file.id} className="account-file">
-                          <a
-                            className="account-file-name"
-                            href={`${getApiUrl()}/api/projects/${projectId}/accounts/${account.id}/files/${file.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {file.fileName}
-                          </a>
-                          <span className="account-file-size">{formatFileSize(file.fileSize)}</span>
-                          <button
-                            type="button"
-                            className="tag-chip-remove"
-                            onClick={() => handleDeleteFile(account.id, file.id)}
-                          >
-                            ✕
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  <label className="account-file-upload">
-                    Adjuntar archivo (opcional, texto o PDF):
-                    <input
-                      type="file"
-                      accept={ACCOUNT_FILE_ACCEPT}
-                      disabled={uploadingAccountId === account.id}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) void handleUploadFile(account.id, file)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <form className="inline-form" onSubmit={handleAddAccount} style={{ marginTop: 'var(--spacing-4)' }}>
-            <div className="inline-field">
-              <label htmlFor="account-label">Servicio</label>
-              <input
-                id="account-label"
-                value={newAccountLabel}
-                onChange={(e) => setNewAccountLabel(e.target.value)}
-                placeholder="Google Analytics, Hosting…"
-              />
-            </div>
-            <div className="inline-field">
-              <label htmlFor="account-value">Cuenta / identificador</label>
-              <input
-                id="account-value"
-                value={newAccountValue}
-                onChange={(e) => setNewAccountValue(e.target.value)}
-                placeholder="cliente@gmail.com"
-              />
-            </div>
-            <button type="submit" className="btn-ghost" disabled={savingAccount || !newAccountLabel.trim() || !newAccountValue.trim()}>
-              {savingAccount ? 'Agregando…' : 'Agregar'}
-            </button>
-          </form>
-        </div>
-
-        <div className="panel">
-          <h2>Variables de entorno</h2>
-
-          {envVarsError && (
-            <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{envVarsError}</div>
-          )}
-
-          {!envVars ? (
-            <p className="empty-state">Cargando…</p>
-          ) : envVars.length === 0 ? (
-            <p className="empty-state">Todavía no hay variables de entorno cargadas.</p>
-          ) : (
-            <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Valor</th>
-                    <th>Creada</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {envVars.map((envVar) => (
-                    <tr key={envVar.id}>
-                      <td>{envVar.name}</td>
-                      <td>{envVar.value}</td>
-                      <td>{formatCreatedAt(envVar.createdAt)}</td>
-                      <td><button className="link-danger" onClick={() => handleDeleteEnvVar(envVar.id)}>Eliminar</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <form className="inline-form" onSubmit={handleCreateEnvVar}>
-            <div className="inline-field">
-              <label htmlFor="env-var-name">Nombre</label>
-              <input
-                id="env-var-name" required
-                value={newEnvVarName}
-                onChange={(e) => setNewEnvVarName(e.target.value)}
-                placeholder="DATABASE_URL"
-              />
-            </div>
-            <div className="inline-field">
-              <label htmlFor="env-var-value">Valor</label>
-              <input
-                id="env-var-value" required
-                value={newEnvVarValue}
-                onChange={(e) => setNewEnvVarValue(e.target.value)}
-                placeholder="postgres://…"
-              />
-            </div>
-            <button type="submit" className="btn" disabled={creatingEnvVar || !newEnvVarName.trim() || !newEnvVarValue.trim()}>
-              {creatingEnvVar ? 'Agregando…' : 'Agregar variable'}
-            </button>
-          </form>
-
-          <div className="inline-form" style={{ marginTop: 'var(--spacing-3)' }}>
-            <div className="inline-field">
-              <label htmlFor="env-var-import">Importar desde archivo .env</label>
+            <div className="mt-3 flex flex-col gap-1.5">
+              <Label htmlFor="env-var-import">Importar desde archivo .env</Label>
               <input
                 id="env-var-import"
                 type="file"
                 accept=".env,text/plain"
                 disabled={importingEnv}
+                className="text-sm"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (file) void handleImportEnvFile(file)
@@ -737,124 +771,148 @@ export default function ProjectDetailPage() {
                 }}
               />
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="panel">
-        <h2>Vencimientos y mantenimiento</h2>
-        <p className="audit-intro">
-          Cuando se acerca la fecha, se crea automáticamente una Tarea interna — no se le avisa al cliente.
-        </p>
+      <Card>
+        <CardContent>
+          <h2 className="text-base font-semibold">Vencimientos y mantenimiento</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Cuando se acerca la fecha, se crea automáticamente una Tarea interna — no se le avisa al cliente.
+          </p>
 
-        {remindersError && (
-          <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{remindersError}</div>
-        )}
+          {remindersError && (
+            <Alert variant="destructive" className="mb-3"><AlertDescription>{remindersError}</AlertDescription></Alert>
+          )}
 
-        {!reminders ? (
-          <p className="empty-state">Cargando…</p>
-        ) : reminders.length === 0 ? (
-          <p className="empty-state">Todavía no hay vencimientos cargados.</p>
-        ) : (
-          <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Descripción</th>
-                  <th>Vencimiento</th>
-                  <th>Monto</th>
-                  <th>Recurrencia</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {reminders.map((reminder) => (
-                  <tr key={reminder.id}>
-                    <td><span className={`pill pill-kind-${reminder.kind}`}>{KIND_LABELS[reminder.kind]}</span></td>
-                    <td>{reminder.description}</td>
-                    <td>{formatDueDate(reminder.dueDate)}</td>
-                    <td>{formatAmount(reminder.amount, reminder.currency)}</td>
-                    <td>{RECURRENCE_LABELS[reminder.recurrence]}</td>
-                    <td><button className="link-danger" onClick={() => handleDeleteReminder(reminder.id)}>Eliminar</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {!reminders ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+          ) : reminders.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay vencimientos cargados.</p>
+          ) : (
+            <div className="mb-4 overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Vencimiento</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Recurrencia</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reminders.map((reminder) => (
+                    <TableRow key={reminder.id}>
+                      <TableCell><Badge variant="secondary">{KIND_LABELS[reminder.kind]}</Badge></TableCell>
+                      <TableCell>{reminder.description}</TableCell>
+                      <TableCell>{formatDueDate(reminder.dueDate)}</TableCell>
+                      <TableCell>{formatAmount(reminder.amount, reminder.currency)}</TableCell>
+                      <TableCell>{RECURRENCE_LABELS[reminder.recurrence]}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteReminder(reminder.id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-        <form className="inline-form" onSubmit={handleCreateReminder}>
-          <div className="inline-field">
-            <label htmlFor="reminder-kind">Tipo</label>
-            <select id="reminder-kind" value={reminderKind} onChange={(e) => setReminderKind(e.target.value as ProjectReminderKind)}>
-              {Object.entries(KIND_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="inline-field">
-            <label htmlFor="reminder-description">Descripción</label>
-            <input
-              id="reminder-description" required
-              value={reminderDescription}
-              onChange={(e) => setReminderDescription(e.target.value)}
-              placeholder="Renovación anual — Hostinger"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="reminder-due-date">Vencimiento</label>
-            <input
-              id="reminder-due-date" type="date" required
-              value={reminderDueDate}
-              onChange={(e) => setReminderDueDate(e.target.value)}
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="reminder-amount">Monto (opcional)</label>
-            <input
-              id="reminder-amount" type="number" min="0" step="0.01"
-              value={reminderAmount}
-              onChange={(e) => setReminderAmount(e.target.value)}
-              placeholder="15.00"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="reminder-currency">Moneda</label>
-            <select id="reminder-currency" value={reminderCurrency} onChange={(e) => setReminderCurrency(e.target.value)}>
-              <option value="USD">USD</option>
-              <option value="UYU">UYU</option>
-              <option value="ARS">ARS</option>
-              <option value="CLP">CLP</option>
-              <option value="BRL">BRL</option>
-            </select>
-          </div>
-          <div className="inline-field">
-            <label htmlFor="reminder-recurrence">Recurrencia</label>
-            <select
-              id="reminder-recurrence"
-              value={reminderRecurrence}
-              onChange={(e) => setReminderRecurrence(e.target.value as ProjectReminderRecurrence)}
-            >
-              {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="inline-field">
-            <label htmlFor="reminder-days-before">Avisar con cuántos días de anticipación</label>
-            <input
-              id="reminder-days-before" type="number" min="0" step="1"
-              value={reminderDaysBefore}
-              onChange={(e) => setReminderDaysBefore(e.target.value)}
-              placeholder="7"
-            />
-          </div>
-          <button type="submit" className="btn" disabled={creatingReminder}>
-            {creatingReminder ? 'Agregando…' : 'Agregar vencimiento'}
-          </button>
-        </form>
-      </div>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateReminder}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-kind">Tipo</Label>
+              <Select value={reminderKind} onValueChange={(value) => value && setReminderKind(value as ProjectReminderKind)}>
+                <SelectTrigger id="reminder-kind" className="w-36">
+                  <SelectValue>{(value: string) => KIND_LABELS[value as ProjectReminderKind] ?? value}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(KIND_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-description">Descripción</Label>
+              <Input
+                id="reminder-description" required
+                value={reminderDescription}
+                onChange={(e) => setReminderDescription(e.target.value)}
+                placeholder="Renovación anual — Hostinger"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-due-date">Vencimiento</Label>
+              <Input
+                id="reminder-due-date" type="date" required
+                value={reminderDueDate}
+                onChange={(e) => setReminderDueDate(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-amount">Monto (opcional)</Label>
+              <Input
+                id="reminder-amount" type="number" min="0" step="0.01"
+                value={reminderAmount}
+                onChange={(e) => setReminderAmount(e.target.value)}
+                placeholder="15.00"
+                className="w-28"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-currency">Moneda</Label>
+              <Select value={reminderCurrency} onValueChange={(value) => value && setReminderCurrency(value)}>
+                <SelectTrigger id="reminder-currency" className="w-24">
+                  <SelectValue>{(value: string) => value}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {['USD', 'UYU', 'ARS', 'CLP', 'BRL'].map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-recurrence">Recurrencia</Label>
+              <Select
+                value={reminderRecurrence}
+                onValueChange={(value) => value && setReminderRecurrence(value as ProjectReminderRecurrence)}
+              >
+                <SelectTrigger id="reminder-recurrence" className="w-32">
+                  <SelectValue>{(value: string) => RECURRENCE_LABELS[value as ProjectReminderRecurrence] ?? value}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reminder-days-before">Avisar con cuántos días de anticipación</Label>
+              <Input
+                id="reminder-days-before" type="number" min="0" step="1"
+                value={reminderDaysBefore}
+                onChange={(e) => setReminderDaysBefore(e.target.value)}
+                placeholder="7"
+                className="w-20"
+              />
+            </div>
+            <Button type="submit" disabled={creatingReminder}>
+              {creatingReminder ? 'Agregando…' : 'Agregar vencimiento'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

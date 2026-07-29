@@ -4,6 +4,19 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { ContactStatus } from '@colonia-crm/shared'
 import { useApp } from '../app-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+} from '@/components/ui/table'
 
 type TagItem = { id: string; name: string; color: string | null }
 
@@ -22,6 +35,13 @@ const STATUS_LABELS: Record<ContactStatus, string> = {
   prospect: 'Prospecto',
   client:   'Cliente',
   inactive: 'Inactivo',
+}
+
+const STATUS_BADGE_CLASS: Record<ContactStatus, string> = {
+  lead:     'border-transparent bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  prospect: 'border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  client:   'border-transparent bg-primary/15 text-primary-foreground dark:text-primary',
+  inactive: 'border-transparent bg-muted text-muted-foreground',
 }
 
 const SORT_OPTIONS = [
@@ -211,227 +231,269 @@ export default function ContactsPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const allSelected = !!contacts && contacts.length > 0 && contacts.every((c) => selectedIds.has(c.id))
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1>Contactos</h1>
-          <p>Leads, prospectos y clientes.</p>
+          <h1 className="text-xl font-semibold">Contactos</h1>
+          <p className="text-sm text-muted-foreground">Leads, prospectos y clientes.</p>
         </div>
-        <Link href="/app/contacts/import" className="btn-ghost">Importar CSV</Link>
+        <Button variant="outline" nativeButton={false} render={<Link href="/app/contacts/import">Importar CSV</Link>} />
       </div>
 
-      <div className="panel">
-        <form className="inline-form" onSubmit={handleSubmit}>
-          <div className="inline-field">
-            <label htmlFor="contact-name">Nombre</label>
-            <input
-              id="contact-name" required
-              value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="María Fernández"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="contact-email">Email</label>
-            <input
-              id="contact-email" type="email"
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="maria@empresa.com"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="contact-phone">Teléfono</label>
-            <input
-              id="contact-phone"
-              value={phone} onChange={(e) => setPhone(e.target.value)}
-              placeholder="+598 99 123 456"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="contact-company">Empresa</label>
-            <input
-              id="contact-company"
-              value={company} onChange={(e) => setCompany(e.target.value)}
-              placeholder="Acme SRL"
-            />
-          </div>
-          <button type="submit" className="btn" disabled={submitting}>
-            {submitting ? 'Agregando…' : 'Agregar contacto'}
-          </button>
-        </form>
-
-        {error && (
-          <div className="form-error" style={{ marginTop: 'var(--spacing-4)' }}>{error}</div>
-        )}
-      </div>
-
-      <div className="panel">
-        <div className="inline-form" style={{ marginBottom: 'var(--spacing-4)' }}>
-          <div className="inline-field">
-            <label htmlFor="contact-search">Buscar</label>
-            <input
-              id="contact-search"
-              value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Nombre, email o empresa"
-            />
-          </div>
-          <div className="inline-field" style={{ flex: '0 0 160px' }}>
-            <label htmlFor="contact-status-filter">Estado</label>
-            <select
-              id="contact-status-filter"
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-            >
-              <option value="">Todos</option>
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="inline-field" style={{ flex: '0 0 160px' }}>
-            <label htmlFor="contact-sort">Orden</label>
-            <select
-              id="contact-sort"
-              value={sort}
-              onChange={(e) => { setSort(e.target.value); setPage(1) }}
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          {allTags.length > 0 && (
-            <div className="inline-field" style={{ flex: '0 0 160px' }}>
-              <label htmlFor="contact-tag-filter">Etiqueta</label>
-              <select
-                id="contact-tag-filter"
-                value={tagFilter}
-                onChange={(e) => { setTagFilter(e.target.value); setPage(1) }}
-              >
-                <option value="">Todas</option>
-                {allTags.map((tag) => (
-                  <option key={tag.id} value={tag.id}>{tag.name}</option>
-                ))}
-              </select>
+      <Card>
+        <CardContent>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contact-name">Nombre</Label>
+              <Input
+                id="contact-name" required
+                value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="María Fernández"
+              />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contact-email">Email</Label>
+              <Input
+                id="contact-email" type="email"
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="maria@empresa.com"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contact-phone">Teléfono</Label>
+              <Input
+                id="contact-phone"
+                value={phone} onChange={(e) => setPhone(e.target.value)}
+                placeholder="+598 99 123 456"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contact-company">Empresa</Label>
+              <Input
+                id="contact-company"
+                value={company} onChange={(e) => setCompany(e.target.value)}
+                placeholder="Acme SRL"
+              />
+            </div>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Agregando…' : 'Agregar contacto'}
+            </Button>
+          </form>
+
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {!contacts ? (
-          <p className="empty-state">Cargando…</p>
-        ) : contacts.length === 0 ? (
-          <p className="empty-state">
-            {search || statusFilter ? 'Ningún contacto coincide con el filtro.' : 'Todavía no agregaste ningún contacto.'}
-          </p>
-        ) : (
-          <>
-            {selectedIds.size > 0 && (
-              <div className="bulk-toolbar">
-                <span className="bulk-toolbar-count">
-                  {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
-                </span>
-                <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value as ContactStatus | '')}>
-                  <option value="">Cambiar estado a…</option>
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-                <button className="btn-ghost" disabled={!bulkStatus || bulkBusy} onClick={handleBulkStatus}>
-                  Aplicar
-                </button>
-
-                {allTags.length > 0 && (
-                  <>
-                    <select value={bulkTagId} onChange={(e) => setBulkTagId(e.target.value)}>
-                      <option value="">Agregar etiqueta…</option>
-                      {allTags.map((tag) => (
-                        <option key={tag.id} value={tag.id}>{tag.name}</option>
-                      ))}
-                    </select>
-                    <button className="btn-ghost" disabled={!bulkTagId || bulkBusy} onClick={handleBulkAddTag}>
-                      Agregar
-                    </button>
-                  </>
-                )}
-
-                <button className="link-danger" disabled={bulkBusy} onClick={handleBulkDelete}>
-                  Eliminar seleccionados
-                </button>
-              </div>
-            )}
-
-            {bulkError && (
-              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{bulkError}</div>
-            )}
-
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '2rem' }}>
-                      <input
-                        type="checkbox"
-                        checked={contacts.length > 0 && contacts.every((c) => selectedIds.has(c.id))}
-                        onChange={toggleSelectAll}
-                      />
-                    </th>
-                    <th>Nombre</th>
-                    <th>Empresa</th>
-                    <th>Email</th>
-                    <th>Teléfono</th>
-                    <th>Estado</th>
-                    <th>Etiquetas</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contacts.map((contact) => (
-                    <tr key={contact.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(contact.id)}
-                          onChange={() => toggleSelect(contact.id)}
-                        />
-                      </td>
-                      <td><Link href={`/app/contacts/${contact.id}`}>{contact.name}</Link></td>
-                      <td>{contact.companyName ?? '—'}</td>
-                      <td>{contact.email ?? '—'}</td>
-                      <td>{contact.phone ?? '—'}</td>
-                      <td><span className={`pill pill-${contact.status}`}>{STATUS_LABELS[contact.status]}</span></td>
-                      <td>
-                        {contact.tags.length > 0 && (
-                          <div className="tag-chip-row">
-                            {contact.tags.map((tag) => (
-                              <span key={tag.id} className="tag-chip">{tag.name}</span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <button className="link-danger" onClick={() => handleDelete(contact.id)}>Eliminar</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <Card>
+        <CardContent>
+          <div className="mb-4 flex flex-wrap items-end gap-4">
+            <div className="flex min-w-48 flex-1 flex-col gap-1.5">
+              <Label htmlFor="contact-search">Buscar</Label>
+              <Input
+                id="contact-search"
+                value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Nombre, email o empresa"
+              />
             </div>
-
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--spacing-4)' }}>
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
-                  Página {page} de {totalPages} — {total} contactos
-                </span>
-                <div style={{ display: 'flex', gap: 'var(--spacing-2)' }}>
-                  <button className="btn-ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</button>
-                  <button className="btn-ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</button>
-                </div>
+            <div className="flex w-40 flex-col gap-1.5">
+              <Label htmlFor="contact-status-filter">Estado</Label>
+              <Select
+                value={statusFilter || 'all'}
+                onValueChange={(value) => { setStatusFilter(!value || value === 'all' ? '' : value); setPage(1) }}
+              >
+                <SelectTrigger id="contact-status-filter" className="w-full">
+                  <SelectValue>{(value: string) => value === 'all' || !value ? 'Todos' : STATUS_LABELS[value as ContactStatus]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex w-40 flex-col gap-1.5">
+              <Label htmlFor="contact-sort">Orden</Label>
+              <Select value={sort} onValueChange={(value) => { if (value) { setSort(value); setPage(1) } }}>
+                <SelectTrigger id="contact-sort" className="w-full">
+                  <SelectValue>{(value: string) => SORT_OPTIONS.find((o) => o.value === value)?.label ?? value}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {allTags.length > 0 && (
+              <div className="flex w-40 flex-col gap-1.5">
+                <Label htmlFor="contact-tag-filter">Etiqueta</Label>
+                <Select
+                  value={tagFilter || 'all'}
+                  onValueChange={(value) => { setTagFilter(!value || value === 'all' ? '' : value); setPage(1) }}
+                >
+                  <SelectTrigger id="contact-tag-filter" className="w-full">
+                    <SelectValue>{(value: string) => value === 'all' || !value ? 'Todas' : allTags.find((t) => t.id === value)?.name ?? value}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {allTags.map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id}>{tag.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+
+          {!contacts ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
+          ) : contacts.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              {search || statusFilter ? 'Ningún contacto coincide con el filtro.' : 'Todavía no agregaste ningún contacto.'}
+            </p>
+          ) : (
+            <>
+              {selectedIds.size > 0 && (
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3">
+                  <span className="text-sm font-medium">
+                    {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
+                  </span>
+                  <Select value={bulkStatus} onValueChange={(value) => setBulkStatus(value as ContactStatus)}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Cambiar estado a…">
+                        {(value: string) => value ? STATUS_LABELS[value as ContactStatus] : 'Cambiar estado a…'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" disabled={!bulkStatus || bulkBusy} onClick={handleBulkStatus}>
+                    Aplicar
+                  </Button>
+
+                  {allTags.length > 0 && (
+                    <>
+                      <Select value={bulkTagId} onValueChange={(value) => setBulkTagId(value ?? '')}>
+                        <SelectTrigger className="w-44">
+                          <SelectValue placeholder="Agregar etiqueta…">
+                            {(value: string) => value ? allTags.find((t) => t.id === value)?.name ?? value : 'Agregar etiqueta…'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allTags.map((tag) => (
+                            <SelectItem key={tag.id} value={tag.id}>{tag.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" disabled={!bulkTagId || bulkBusy} onClick={handleBulkAddTag}>
+                        Agregar
+                      </Button>
+                    </>
+                  )}
+
+                  <Button
+                    variant="ghost" size="sm"
+                    className="text-destructive hover:text-destructive"
+                    disabled={bulkBusy}
+                    onClick={handleBulkDelete}
+                  >
+                    Eliminar seleccionados
+                  </Button>
+                </div>
+              )}
+
+              {bulkError && (
+                <Alert variant="destructive" className="mb-3">
+                  <AlertDescription>{bulkError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
+                        <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+                      </TableHead>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Etiquetas</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contacts.map((contact) => (
+                      <TableRow key={contact.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(contact.id)}
+                            onCheckedChange={() => toggleSelect(contact.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Link href={`/app/contacts/${contact.id}`} className="font-medium hover:underline">
+                            {contact.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{contact.companyName ?? '—'}</TableCell>
+                        <TableCell>{contact.email ?? '—'}</TableCell>
+                        <TableCell>{contact.phone ?? '—'}</TableCell>
+                        <TableCell>
+                          <Badge className={STATUS_BADGE_CLASS[contact.status]}>{STATUS_LABELS[contact.status]}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {contact.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {contact.tags.map((tag) => (
+                                <Badge key={tag.id} variant="secondary">{tag.name}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDelete(contact.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Página {page} de {totalPages} — {total} contactos
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

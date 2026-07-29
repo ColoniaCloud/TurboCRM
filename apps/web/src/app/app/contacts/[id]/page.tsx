@@ -5,6 +5,17 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ActivityType, ContactStatus, CustomFieldType } from '@colonia-crm/shared'
 import { useApp } from '../../app-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 type CustomFieldValue = string | number | boolean | null
 
@@ -610,437 +621,466 @@ export default function ContactDetailPage() {
 
   if (notFound) {
     return (
-      <div className="page">
-        <p className="empty-state">Este contacto no existe.</p>
-        <Link href="/app/contacts" className="btn-ghost" style={{ alignSelf: 'flex-start' }}>Volver a contactos</Link>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+        <p className="py-10 text-center text-sm text-muted-foreground">Este contacto no existe.</p>
+        <Button variant="outline" className="self-start" nativeButton={false} render={<Link href="/app/contacts">Volver a contactos</Link>} />
       </div>
     )
   }
 
   if (!contact) {
     return (
-      <div className="page">
-        <p className="empty-state">Cargando…</p>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+        <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
       </div>
     )
   }
 
+  const { googleMapsUrl, website } = getContactLinks(contact)
+  const socialLinks = getSocialLinks(contact)
+
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href="/app/contacts" className="back-link">← Contactos</Link>
-          <h1>{contact.name}</h1>
+          <Link href="/app/contacts" className="text-sm text-muted-foreground hover:underline">← Contactos</Link>
+          <h1 className="text-xl font-semibold">{contact.name}</h1>
         </div>
-        <button className="link-danger" onClick={handleDelete} disabled={deleting}>
+        <Button
+          variant="ghost" className="text-muted-foreground hover:text-destructive"
+          onClick={handleDelete} disabled={deleting}
+        >
           {deleting ? 'Eliminando…' : 'Eliminar contacto'}
-        </button>
+        </Button>
       </div>
 
-      {error && <div className="form-error">{error}</div>}
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-      <div className="contact-detail">
-        <div className="contact-detail-main">
-          <div className="panel">
-            <h2>Datos del contacto</h2>
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-              <div className="detail-form-grid">
-                <div className="inline-field">
-                  <label htmlFor="detail-name">Nombre</label>
-                  <input id="detail-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Datos del contacto</h2>
+              <form onSubmit={handleSave} className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="detail-name">Nombre</Label>
+                    <Input id="detail-name" required value={name} onChange={(e) => setName(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="detail-status">Estado</Label>
+                    <Select value={status} onValueChange={(value) => value && setStatus(value as ContactStatus)}>
+                      <SelectTrigger id="detail-status" className="w-full">
+                        <SelectValue>{(value: string) => STATUS_LABELS[value as ContactStatus] ?? value}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="detail-email">Email</Label>
+                    <Input id="detail-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="detail-phone">Teléfono</Label>
+                    <Input id="detail-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <Label htmlFor="detail-company">Empresa</Label>
+                    <Input id="detail-company" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <Label htmlFor="detail-notes">Notas</Label>
+                    <Textarea id="detail-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                  </div>
                 </div>
-                <div className="inline-field">
-                  <label htmlFor="detail-status">Estado</label>
-                  <select id="detail-status" value={status} onChange={(e) => setStatus(e.target.value as ContactStatus)}>
-                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="inline-field">
-                  <label htmlFor="detail-email">Email</label>
-                  <input id="detail-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="inline-field">
-                  <label htmlFor="detail-phone">Teléfono</label>
-                  <input id="detail-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-                <div className="inline-field span-2">
-                  <label htmlFor="detail-company">Empresa</label>
-                  <input id="detail-company" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
-                </div>
-                <div className="inline-field span-2">
-                  <label htmlFor="detail-notes">Notas</label>
-                  <textarea id="detail-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-                </div>
-              </div>
-              <button type="submit" className="btn" disabled={saving} style={{ alignSelf: 'flex-start' }}>
-                {saving ? 'Guardando…' : 'Guardar cambios'}
-              </button>
-            </form>
-          </div>
+                <Button type="submit" className="self-start" disabled={saving}>
+                  {saving ? 'Guardando…' : 'Guardar cambios'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-          <div className="panel">
-            <h2>Proyectos</h2>
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Proyectos</h2>
 
-            {projectsError && (
-              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{projectsError}</div>
-            )}
+              {projectsError && (
+                <Alert variant="destructive" className="mb-3"><AlertDescription>{projectsError}</AlertDescription></Alert>
+              )}
 
-            {!projectsList ? (
-              <p className="empty-state">Cargando…</p>
-            ) : projectsList.length === 0 ? (
-              <p className="empty-state">Todavía no hay proyectos para este contacto.</p>
-            ) : (
-              <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Nombre</th><th>Plataforma</th><th></th></tr>
-                  </thead>
-                  <tbody>
-                    {projectsList.map((project) => (
-                      <tr key={project.id}>
-                        <td>{project.name}</td>
-                        <td>{project.platform ?? '—'}</td>
-                        <td><Link href={`/app/contacts/${id}/projects/${project.id}`}>Ver</Link></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              {!projectsList ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+              ) : projectsList.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay proyectos para este contacto.</p>
+              ) : (
+                <div className="mb-4 overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow><TableHead>Nombre</TableHead><TableHead>Plataforma</TableHead><TableHead></TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {projectsList.map((project) => (
+                        <TableRow key={project.id}>
+                          <TableCell>{project.name}</TableCell>
+                          <TableCell>{project.platform ?? '—'}</TableCell>
+                          <TableCell>
+                            <Link href={`/app/contacts/${id}/projects/${project.id}`} className="text-sm hover:underline">Ver</Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
 
-            <form className="inline-form" onSubmit={handleCreateProject}>
-              <div className="inline-field">
-                <label htmlFor="new-project-name">Nombre</label>
-                <input
-                  id="new-project-name"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Sitio web, tienda online…"
-                />
-              </div>
-              <div className="inline-field">
-                <label htmlFor="new-project-platform">Plataforma</label>
-                <input
-                  id="new-project-platform"
-                  value={newProjectPlatform}
-                  onChange={(e) => setNewProjectPlatform(e.target.value)}
-                  placeholder="WordPress, Next.js…"
-                />
-              </div>
-              <button type="submit" className="btn" disabled={creatingProject || !newProjectName.trim()}>
-                {creatingProject ? 'Creando…' : 'Crear proyecto'}
-              </button>
-            </form>
-          </div>
+              <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateProject}>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-project-name">Nombre</Label>
+                  <Input
+                    id="new-project-name"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Sitio web, tienda online…"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-project-platform">Plataforma</Label>
+                  <Input
+                    id="new-project-platform"
+                    value={newProjectPlatform}
+                    onChange={(e) => setNewProjectPlatform(e.target.value)}
+                    placeholder="WordPress, Next.js…"
+                  />
+                </div>
+                <Button type="submit" disabled={creatingProject || !newProjectName.trim()}>
+                  {creatingProject ? 'Creando…' : 'Crear proyecto'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-          {(() => {
-            const { googleMapsUrl, website } = getContactLinks(contact)
-            if (!googleMapsUrl && !website) return null
-            return (
-              <div className="panel">
-                <h2>Enlaces</h2>
-                <div className="contact-links">
+          {(googleMapsUrl || website) && (
+            <Card>
+              <CardContent>
+                <h2 className="mb-3 text-base font-semibold">Enlaces</h2>
+                <div className="flex flex-wrap gap-4 text-sm">
                   {googleMapsUrl && (
-                    <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">Ver en Google Maps</a>
+                    <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Ver en Google Maps</a>
                   )}
                   {website && (
-                    <a href={website} target="_blank" rel="noopener noreferrer">Visitar sitio web</a>
+                    <a href={website} target="_blank" rel="noopener noreferrer" className="hover:underline">Visitar sitio web</a>
                   )}
                 </div>
-              </div>
-            )
-          })()}
+              </CardContent>
+            </Card>
+          )}
 
-          {(() => {
-            const socialLinks = getSocialLinks(contact)
-            if (socialLinks.length === 0) return null
-            return (
-              <div className="panel">
-                <h2>Redes sociales</h2>
-                <div className="contact-links">
+          {socialLinks.length > 0 && (
+            <Card>
+              <CardContent>
+                <h2 className="mb-3 text-base font-semibold">Redes sociales</h2>
+                <div className="flex flex-wrap gap-4 text-sm">
                   {socialLinks.map((link) => (
-                    <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer">
+                    <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                       {link.platform}
                     </a>
                   ))}
                 </div>
-              </div>
-            )
-          })()}
+              </CardContent>
+            </Card>
+          )}
 
-          <div className="panel">
-            <h2>Etiquetas</h2>
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Etiquetas</h2>
 
-            {tagError && (
-              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{tagError}</div>
-            )}
+              {tagError && (
+                <Alert variant="destructive" className="mb-3"><AlertDescription>{tagError}</AlertDescription></Alert>
+              )}
 
-            {!allTags ? (
-              <p className="empty-state">Cargando…</p>
-            ) : (
-              <>
-                <div className="tag-chip-row" style={{ marginBottom: 'var(--spacing-3)' }}>
-                  {allTags.length === 0 ? (
-                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
-                      Todavía no creaste etiquetas.
-                    </span>
-                  ) : (
-                    allTags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        className={`tag-chip tag-chip-toggle${contactTagIds.has(tag.id) ? ' active' : ''}`}
-                        onClick={() => toggleTag(tag.id)}
-                      >
-                        {tag.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-                <form className="tag-chip-add-form" onSubmit={handleAddTag}>
-                  <input
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    placeholder="Nueva etiqueta"
-                  />
-                  <button type="submit" className="btn-ghost" disabled={creatingTag || !newTagName.trim()}>
-                    {creatingTag ? 'Creando…' : 'Agregar'}
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-
-          <div className="panel">
-            <h2>Campos personalizados</h2>
-
-            {fieldsError && (
-              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{fieldsError}</div>
-            )}
-
-            {!customFieldDefs ? (
-              <p className="empty-state">Cargando…</p>
-            ) : customFieldDefs.length === 0 ? (
-              <p className="empty-state">
-                Todavía no hay campos personalizados. Podés crearlos en{' '}
-                <Link href="/app/settings">Configuración</Link>.
-              </p>
-            ) : (
-              <form onSubmit={handleSaveFields} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-                <div className="detail-form-grid">
-                  {customFieldDefs.map((def) => (
-                    <div key={def.id} className="inline-field">
-                      <label htmlFor={`cf-${def.key}`}>{def.label}{def.required ? ' *' : ''}</label>
-                      {def.fieldType === 'boolean' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', paddingTop: 'var(--spacing-1)' }}>
-                          <input
-                            id={`cf-${def.key}`} type="checkbox"
-                            checked={Boolean(fieldValues[def.key])}
-                            onChange={(e) => setFieldValue(def.key, e.target.checked)}
-                          />
-                        </div>
-                      ) : def.fieldType === 'select' ? (
-                        <select
-                          id={`cf-${def.key}`}
-                          value={typeof fieldValues[def.key] === 'string' ? fieldValues[def.key] as string : ''}
-                          onChange={(e) => setFieldValue(def.key, e.target.value)}
+              {!allTags ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {allTags.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">Todavía no creaste etiquetas.</span>
+                    ) : (
+                      allTags.map((tag) => (
+                        <Button
+                          key={tag.id}
+                          type="button"
+                          size="sm"
+                          variant={contactTagIds.has(tag.id) ? 'default' : 'secondary'}
+                          onClick={() => toggleTag(tag.id)}
                         >
-                          <option value="">—</option>
-                          {(def.options ?? []).map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          id={`cf-${def.key}`}
-                          type={def.fieldType === 'number' ? 'number' : def.fieldType === 'date' ? 'date' : 'text'}
-                          value={typeof fieldValues[def.key] === 'string' ? fieldValues[def.key] as string : ''}
-                          onChange={(e) => setFieldValue(def.key, e.target.value)}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button type="submit" className="btn" disabled={savingFields} style={{ alignSelf: 'flex-start' }}>
-                  {savingFields ? 'Guardando…' : 'Guardar campos'}
-                </button>
-              </form>
-            )}
-          </div>
+                          {tag.name}
+                        </Button>
+                      ))
+                    )}
+                  </div>
+                  <form className="flex items-center gap-2" onSubmit={handleAddTag}>
+                    <Input
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      placeholder="Nueva etiqueta"
+                      className="h-8 w-48"
+                    />
+                    <Button type="submit" size="sm" variant="outline" disabled={creatingTag || !newTagName.trim()}>
+                      {creatingTag ? 'Creando…' : 'Agregar'}
+                    </Button>
+                  </form>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Campos personalizados</h2>
+
+              {fieldsError && (
+                <Alert variant="destructive" className="mb-3"><AlertDescription>{fieldsError}</AlertDescription></Alert>
+              )}
+
+              {!customFieldDefs ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+              ) : customFieldDefs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Todavía no hay campos personalizados. Podés crearlos en{' '}
+                  <Link href="/app/settings" className="hover:underline">Configuración</Link>.
+                </p>
+              ) : (
+                <form onSubmit={handleSaveFields} className="flex flex-col gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {customFieldDefs.map((def) => (
+                      <div key={def.id} className="flex flex-col gap-1.5">
+                        <Label htmlFor={`cf-${def.key}`}>{def.label}{def.required ? ' *' : ''}</Label>
+                        {def.fieldType === 'boolean' ? (
+                          <div className="flex items-center pt-1">
+                            <Checkbox
+                              id={`cf-${def.key}`}
+                              checked={Boolean(fieldValues[def.key])}
+                              onCheckedChange={(checked) => setFieldValue(def.key, checked === true)}
+                            />
+                          </div>
+                        ) : def.fieldType === 'select' ? (
+                          <Select
+                            value={(typeof fieldValues[def.key] === 'string' ? fieldValues[def.key] as string : '') || '__empty__'}
+                            onValueChange={(value) => setFieldValue(def.key, !value || value === '__empty__' ? '' : value)}
+                          >
+                            <SelectTrigger id={`cf-${def.key}`} className="w-full">
+                              <SelectValue>{(value: string) => value === '__empty__' || !value ? '—' : value}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__empty__">—</SelectItem>
+                              {(def.options ?? []).map((opt) => (
+                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`cf-${def.key}`}
+                            type={def.fieldType === 'number' ? 'number' : def.fieldType === 'date' ? 'date' : 'text'}
+                            value={typeof fieldValues[def.key] === 'string' ? fieldValues[def.key] as string : ''}
+                            onChange={(e) => setFieldValue(def.key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button type="submit" className="self-start" disabled={savingFields}>
+                    {savingFields ? 'Guardando…' : 'Guardar campos'}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="contact-detail-side">
-          <div className="panel">
-            <h2>Auditoría con IA</h2>
-            <p className="audit-intro">
-              Analiza la presencia digital del negocio y genera un informe brandeado con link público para compartir.
-            </p>
-
-            {auditError && (
-              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{auditError}</div>
-            )}
-
-            <button
-              type="button"
-              className="btn"
-              disabled={generatingAudit}
-              onClick={handleGenerateAudit}
-              style={{ marginBottom: 'var(--spacing-4)' }}
-            >
-              {generatingAudit ? 'Analizando con IA…' : 'Generar auditoría'}
-            </button>
-
-            {generatingAudit && (
-              <p className="audit-generating">
-                Revisando el sitio del negocio y redactando el informe — puede tardar medio minuto…
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardContent>
+              <h2 className="mb-1 text-base font-semibold">Auditoría con IA</h2>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Analiza la presencia digital del negocio y genera un informe brandeado con link público para compartir.
               </p>
-            )}
 
-            {!auditsList ? (
-              <p className="empty-state">Cargando…</p>
-            ) : auditsList.length === 0 ? (
-              <p className="empty-state">Todavía no generaste ninguna auditoría.</p>
-            ) : (
-              <ul className="audit-list">
-                {auditsList.map((audit) => (
-                  <li key={audit.id} className="audit-item">
-                    <div className="audit-item-head">
-                      <span>{audit.data.tipo === 'auditoria' ? 'Auditoría' : 'Oportunidad'}</span>
-                      <span className="audit-item-date">{formatActivityDate(audit.createdAt)}</span>
-                    </div>
-                    <div className="audit-item-actions">
-                      <a href={audit.publicUrl} target="_blank" rel="noopener noreferrer">Ver informe</a>
-                      {contact.phone && (
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          disabled={sendingAuditVia !== null}
-                          onClick={() => handleSendAudit(audit, 'whatsapp')}
-                        >
-                          {sendingAuditVia === `${audit.id}:whatsapp` ? 'Enviando…' : 'Enviar por WhatsApp'}
-                        </button>
+              {auditError && (
+                <Alert variant="destructive" className="mb-3"><AlertDescription>{auditError}</AlertDescription></Alert>
+              )}
+
+              <Button
+                type="button"
+                className="mb-4"
+                disabled={generatingAudit}
+                onClick={handleGenerateAudit}
+              >
+                {generatingAudit ? 'Analizando con IA…' : 'Generar auditoría'}
+              </Button>
+
+              {generatingAudit && (
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Revisando el sitio del negocio y redactando el informe — puede tardar medio minuto…
+                </p>
+              )}
+
+              {!auditsList ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+              ) : auditsList.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Todavía no generaste ninguna auditoría.</p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {auditsList.map((audit) => (
+                    <li key={audit.id} className="rounded-lg bg-muted/40 p-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{audit.data.tipo === 'auditoria' ? 'Auditoría' : 'Oportunidad'}</span>
+                        <span className="text-muted-foreground">{formatActivityDate(audit.createdAt)}</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <a href={audit.publicUrl} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">Ver informe</a>
+                        {contact.phone && (
+                          <Button
+                            type="button"
+                            variant="outline" size="sm"
+                            disabled={sendingAuditVia !== null}
+                            onClick={() => handleSendAudit(audit, 'whatsapp')}
+                          >
+                            {sendingAuditVia === `${audit.id}:whatsapp` ? 'Enviando…' : 'Enviar por WhatsApp'}
+                          </Button>
+                        )}
+                        {contact.email && (
+                          <Button
+                            type="button"
+                            variant="outline" size="sm"
+                            disabled={sendingAuditVia !== null}
+                            onClick={() => handleSendAudit(audit, 'email')}
+                          >
+                            {sendingAuditVia === `${audit.id}:email` ? 'Enviando…' : 'Enviar por Email'}
+                          </Button>
+                        )}
+                      </div>
+                      {auditSent === audit.id && (
+                        <p className="mt-2 text-sm text-primary-foreground">Auditoría enviada al contacto.</p>
                       )}
-                      {contact.email && (
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          disabled={sendingAuditVia !== null}
-                          onClick={() => handleSendAudit(audit, 'email')}
-                        >
-                          {sendingAuditVia === `${audit.id}:email` ? 'Enviando…' : 'Enviar por Email'}
-                        </button>
-                      )}
-                    </div>
-                    {auditSent === audit.id && (
-                      <p className="audit-sent">Auditoría enviada al contacto.</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
 
-          <div className="panel">
-            <h2>Enviar WhatsApp</h2>
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Enviar WhatsApp</h2>
 
-            {!contact.phone ? (
-              <p className="empty-state">Cargá un teléfono para poder enviar WhatsApp.</p>
-            ) : (
-              <form onSubmit={handleSendWhatsapp} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-3)' }}>
-                <div className="inline-field">
-                  <textarea
+              {!contact.phone ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargá un teléfono para poder enviar WhatsApp.</p>
+              ) : (
+                <form onSubmit={handleSendWhatsapp} className="flex flex-col gap-3">
+                  <Textarea
                     rows={3}
                     value={whatsappMessage}
                     onChange={(e) => setWhatsappMessage(e.target.value)}
                     placeholder="Escribí un mensaje…"
                   />
-                </div>
-                {whatsappError && (
-                  <div className="form-error">{whatsappError}</div>
-                )}
-                <button type="submit" className="btn" disabled={sendingWhatsapp || !whatsappMessage.trim()} style={{ alignSelf: 'flex-start' }}>
-                  {sendingWhatsapp ? 'Enviando…' : 'Enviar WhatsApp'}
-                </button>
+                  {whatsappError && (
+                    <Alert variant="destructive"><AlertDescription>{whatsappError}</AlertDescription></Alert>
+                  )}
+                  <Button type="submit" className="self-start" disabled={sendingWhatsapp || !whatsappMessage.trim()}>
+                    {sendingWhatsapp ? 'Enviando…' : 'Enviar WhatsApp'}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Enviar Email</h2>
+
+              {!contact.email ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargá un email para poder enviar correos.</p>
+              ) : (
+                <form onSubmit={handleSendEmail} className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="email-subject">Asunto</Label>
+                    <Input
+                      id="email-subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder="Asunto del email"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="email-message">Mensaje</Label>
+                    <Textarea
+                      id="email-message"
+                      rows={4}
+                      value={emailMessage}
+                      onChange={(e) => setEmailMessage(e.target.value)}
+                      placeholder="Escribí un mensaje…"
+                    />
+                  </div>
+                  {emailError && (
+                    <Alert variant="destructive"><AlertDescription>{emailError}</AlertDescription></Alert>
+                  )}
+                  <Button
+                    type="submit"
+                    className="self-start"
+                    disabled={sendingEmail || !emailSubject.trim() || !emailMessage.trim()}
+                  >
+                    {sendingEmail ? 'Enviando…' : 'Enviar Email'}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <h2 className="mb-3 text-base font-semibold">Actividad</h2>
+
+              {activitiesError && (
+                <Alert variant="destructive" className="mb-3"><AlertDescription>{activitiesError}</AlertDescription></Alert>
+              )}
+
+              <form className="mb-4 flex items-center gap-2" onSubmit={handleAddNote}>
+                <Input
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  placeholder="Agregar una nota…"
+                  className="h-8"
+                />
+                <Button type="submit" size="sm" variant="outline" disabled={addingNote || !noteContent.trim()}>
+                  {addingNote ? 'Agregando…' : 'Agregar'}
+                </Button>
               </form>
-            )}
-          </div>
 
-          <div className="panel">
-            <h2>Enviar Email</h2>
-
-            {!contact.email ? (
-              <p className="empty-state">Cargá un email para poder enviar correos.</p>
-            ) : (
-              <form onSubmit={handleSendEmail} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-3)' }}>
-                <div className="inline-field">
-                  <label htmlFor="email-subject">Asunto</label>
-                  <input
-                    id="email-subject"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    placeholder="Asunto del email"
-                  />
-                </div>
-                <div className="inline-field">
-                  <label htmlFor="email-message">Mensaje</label>
-                  <textarea
-                    id="email-message"
-                    rows={4}
-                    value={emailMessage}
-                    onChange={(e) => setEmailMessage(e.target.value)}
-                    placeholder="Escribí un mensaje…"
-                  />
-                </div>
-                {emailError && (
-                  <div className="form-error">{emailError}</div>
-                )}
-                <button
-                  type="submit"
-                  className="btn"
-                  disabled={sendingEmail || !emailSubject.trim() || !emailMessage.trim()}
-                  style={{ alignSelf: 'flex-start' }}
-                >
-                  {sendingEmail ? 'Enviando…' : 'Enviar Email'}
-                </button>
-              </form>
-            )}
-          </div>
-
-          <div className="panel">
-            <h2>Actividad</h2>
-
-            {activitiesError && (
-              <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{activitiesError}</div>
-            )}
-
-            <form className="tag-chip-add-form" onSubmit={handleAddNote} style={{ marginBottom: 'var(--spacing-4)' }}>
-              <input
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-                placeholder="Agregar una nota…"
-              />
-              <button type="submit" className="btn-ghost" disabled={addingNote || !noteContent.trim()}>
-                {addingNote ? 'Agregando…' : 'Agregar'}
-              </button>
-            </form>
-
-            {!activities ? (
-              <p className="empty-state">Cargando…</p>
-            ) : activities.length === 0 ? (
-              <p className="empty-state">Todavía no hay actividad registrada.</p>
-            ) : (
-              <ul className="timeline">
-                {activities.map((activity) => (
-                  <li key={activity.id} className={`timeline-item timeline-item-${activity.type}`}>
-                    <p className="timeline-content">{describeActivity(activity)}</p>
-                    <span className="timeline-date">{formatActivityDate(activity.createdAt)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+              {!activities ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+              ) : activities.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay actividad registrada.</p>
+              ) : (
+                <ul className="flex flex-col gap-4">
+                  {activities.map((activity) => (
+                    <li
+                      key={activity.id}
+                      className={`border-l-2 pl-4 ${activity.type === 'status_change' ? 'border-primary' : 'border-border'}`}
+                    >
+                      <p className="text-sm">{describeActivity(activity)}</p>
+                      <span className="text-xs text-muted-foreground">{formatActivityDate(activity.createdAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

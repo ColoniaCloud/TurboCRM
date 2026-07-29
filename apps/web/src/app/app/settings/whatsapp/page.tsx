@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../../app-context'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 type WhatsAppStatus = {
   status: 'ok'
@@ -73,44 +76,44 @@ export default function WhatsAppSettingsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>WhatsApp</h1>
-          <p>Conectá el número de WhatsApp que va a usar el CRM para enviar y recibir mensajes.</p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        Conectá el número de WhatsApp que va a usar el CRM para enviar y recibir mensajes.
+      </p>
 
-      <div className="panel">
-        {error && (
-          <div className="form-error" style={{ marginBottom: 'var(--spacing-4)' }}>{error}</div>
-        )}
+      <Card>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert>
+          )}
 
-        {connected === null ? (
-          <p className="empty-state">Cargando…</p>
-        ) : connected ? (
-          <div className="whatsapp-status">
-            <span className="whatsapp-status-connected">
-              <span className="whatsapp-status-dot" />
-              WhatsApp conectado
-            </span>
-            <button type="button" className="btn-ghost" onClick={handleLogout} disabled={loggingOut}>
-              {loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión de WhatsApp'}
-            </button>
-          </div>
-        ) : (
-          <div className="whatsapp-status">
-            {qrDataUrl ? (
-              <img src={qrDataUrl} alt="Código QR de WhatsApp" className="whatsapp-qr" />
-            ) : (
-              <p className="empty-state">Generando código QR…</p>
-            )}
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', maxWidth: 360 }}>
-              Escaneá este código desde WhatsApp en tu teléfono → Menú → Dispositivos vinculados → Vincular un dispositivo.
-            </p>
-          </div>
-        )}
-      </div>
+          {connected === null ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
+          ) : connected ? (
+            <div className="flex flex-col items-start gap-4">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <span className="size-2 rounded-full bg-primary" />
+                WhatsApp conectado
+              </span>
+              <Button type="button" variant="outline" onClick={handleLogout} disabled={loggingOut}>
+                {loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión de WhatsApp'}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-start gap-4">
+              {qrDataUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qrDataUrl} alt="Código QR de WhatsApp" className="size-56 rounded-lg border" />
+              ) : (
+                <p className="py-6 text-sm text-muted-foreground">Generando código QR…</p>
+              )}
+              <p className="max-w-90 text-sm text-muted-foreground">
+                Escaneá este código desde WhatsApp en tu teléfono → Menú → Dispositivos vinculados → Vincular un dispositivo.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

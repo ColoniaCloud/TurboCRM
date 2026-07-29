@@ -5,6 +5,13 @@ import Link from 'next/link'
 import Papa from 'papaparse'
 import type { CustomFieldType } from '@colonia-crm/shared'
 import { useApp } from '../../app-context'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 const MAX_ROWS = 500
 
@@ -29,6 +36,8 @@ type ImportResult = {
   updated: number
   skipped: { row: number; error: string }[]
 }
+
+const NO_IMPORT = '__no_import__'
 
 export default function ContactsImportPage() {
   const { apiFetch } = useApp()
@@ -86,7 +95,7 @@ export default function ContactsImportPage() {
   }
 
   function setMap(key: string, column: string) {
-    setMapping((prev) => ({ ...prev, [key]: column }))
+    setMapping((prev) => ({ ...prev, [key]: column === NO_IMPORT ? '' : column }))
   }
 
   function buildPayload() {
@@ -144,121 +153,129 @@ export default function ContactsImportPage() {
 
   const nameMapped = Boolean(mapping.name)
 
+  function ColumnSelect({ id, value, onChange }: { id: string; value: string; onChange: (col: string) => void }) {
+    return (
+      <Select value={value || NO_IMPORT} onValueChange={(v) => onChange(v ?? NO_IMPORT)}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue>{(v: string) => v === NO_IMPORT || !v ? 'No importar' : v}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_IMPORT}>No importar</SelectItem>
+          {columns.map((col) => (
+            <SelectItem key={col} value={col}>{col}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <Link href="/app/contacts" className="back-link">← Contactos</Link>
-          <h1>Importar CSV</h1>
-          <p>Paso {step} de 4</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+      <div>
+        <Link href="/app/contacts" className="text-sm text-muted-foreground hover:underline">← Contactos</Link>
+        <h1 className="text-xl font-semibold">Importar CSV</h1>
+        <p className="text-sm text-muted-foreground">Paso {step} de 4</p>
       </div>
 
-      <div className="panel">
-        {step === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-              Subí un archivo CSV con encabezados en la primera fila. Máximo {MAX_ROWS} filas por importación.
-            </p>
-            <input type="file" accept=".csv" onChange={handleFile} />
-            {parseError && <div className="form-error">{parseError}</div>}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-              {fileName} — {rows.length} filas detectadas. Elegí qué columna del CSV corresponde a cada campo.
-            </p>
-
-            <div className="detail-form-grid">
-              {CRM_FIELDS.map((field) => (
-                <div key={field.key} className="inline-field">
-                  <label htmlFor={`map-${field.key}`}>{field.label}{field.required ? ' *' : ''}</label>
-                  <select
-                    id={`map-${field.key}`}
-                    value={mapping[field.key] ?? ''}
-                    onChange={(e) => setMap(field.key, e.target.value)}
-                  >
-                    <option value="">No importar</option>
-                    {columns.map((col) => (
-                      <option key={col} value={col}>{col}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-
-              {(customFieldDefs ?? []).map((def) => (
-                <div key={def.id} className="inline-field">
-                  <label htmlFor={`map-cf-${def.key}`}>{def.label}</label>
-                  <select
-                    id={`map-cf-${def.key}`}
-                    value={mapping[`cf:${def.key}`] ?? ''}
-                    onChange={(e) => setMap(`cf:${def.key}`, e.target.value)}
-                  >
-                    <option value="">No importar</option>
-                    {columns.map((col) => (
-                      <option key={col} value={col}>{col}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: 'var(--spacing-3)' }}>
-              <button className="btn-ghost" onClick={() => setStep(1)}>Atrás</button>
-              <button className="btn" disabled={!nameMapped} onClick={() => setStep(3)}>Continuar</button>
-            </div>
-            {!nameMapped && (
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
-                Tenés que mapear la columna de Nombre para continuar.
+      <Card>
+        <CardContent>
+          {step === 1 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                Subí un archivo CSV con encabezados en la primera fila. Máximo {MAX_ROWS} filas por importación.
               </p>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <p>Se van a procesar <strong>{rows.length}</strong> filas de <strong>{fileName}</strong>.</p>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-              Si el email de una fila coincide con un contacto existente, se actualiza en vez de duplicarlo.
-            </p>
-            {importError && <div className="form-error">{importError}</div>}
-            <div style={{ display: 'flex', gap: 'var(--spacing-3)' }}>
-              <button className="btn-ghost" onClick={() => setStep(2)} disabled={importing}>Atrás</button>
-              <button className="btn" onClick={handleImport} disabled={importing}>
-                {importing ? 'Importando…' : 'Importar'}
-              </button>
+              <input type="file" accept=".csv" onChange={handleFile} className="text-sm" />
+              {parseError && (
+                <Alert variant="destructive"><AlertDescription>{parseError}</AlertDescription></Alert>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {step === 4 && result && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <p>
-              <strong>{result.created}</strong> contacto{result.created === 1 ? '' : 's'} creado{result.created === 1 ? '' : 's'},{' '}
-              <strong>{result.updated}</strong> actualizado{result.updated === 1 ? '' : 's'}.
-            </p>
+          {step === 2 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                {fileName} — {rows.length} filas detectadas. Elegí qué columna del CSV corresponde a cada campo.
+              </p>
 
-            {result.skipped.length > 0 && (
-              <div>
-                <p style={{ fontWeight: 600 }}>
-                  {result.skipped.length} fila{result.skipped.length === 1 ? '' : 's'} no se importó{result.skipped.length === 1 ? '' : 'ron'}:
-                </p>
-                <ul style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-                  {result.skipped.map((s, i) => (
-                    <li key={i}>Fila {s.row}: {s.error}</li>
-                  ))}
-                </ul>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {CRM_FIELDS.map((field) => (
+                  <div key={field.key} className="flex flex-col gap-1.5">
+                    <Label htmlFor={`map-${field.key}`}>{field.label}{field.required ? ' *' : ''}</Label>
+                    <ColumnSelect
+                      id={`map-${field.key}`}
+                      value={mapping[field.key] ?? ''}
+                      onChange={(col) => setMap(field.key, col)}
+                    />
+                  </div>
+                ))}
+
+                {(customFieldDefs ?? []).map((def) => (
+                  <div key={def.id} className="flex flex-col gap-1.5">
+                    <Label htmlFor={`map-cf-${def.key}`}>{def.label}</Label>
+                    <ColumnSelect
+                      id={`map-cf-${def.key}`}
+                      value={mapping[`cf:${def.key}`] ?? ''}
+                      onChange={(col) => setMap(`cf:${def.key}`, col)}
+                    />
+                  </div>
+                ))}
               </div>
-            )}
 
-            <Link href="/app/contacts" className="btn" style={{ alignSelf: 'flex-start' }}>
-              Volver a Contactos
-            </Link>
-          </div>
-        )}
-      </div>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setStep(1)}>Atrás</Button>
+                <Button disabled={!nameMapped} onClick={() => setStep(3)}>Continuar</Button>
+              </div>
+              {!nameMapped && (
+                <p className="text-sm text-muted-foreground">
+                  Tenés que mapear la columna de Nombre para continuar.
+                </p>
+              )}
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm">Se van a procesar <strong>{rows.length}</strong> filas de <strong>{fileName}</strong>.</p>
+              <p className="text-sm text-muted-foreground">
+                Si el email de una fila coincide con un contacto existente, se actualiza en vez de duplicarlo.
+              </p>
+              {importError && (
+                <Alert variant="destructive"><AlertDescription>{importError}</AlertDescription></Alert>
+              )}
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setStep(2)} disabled={importing}>Atrás</Button>
+                <Button onClick={handleImport} disabled={importing}>
+                  {importing ? 'Importando…' : 'Importar'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && result && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm">
+                <strong>{result.created}</strong> contacto{result.created === 1 ? '' : 's'} creado{result.created === 1 ? '' : 's'},{' '}
+                <strong>{result.updated}</strong> actualizado{result.updated === 1 ? '' : 's'}.
+              </p>
+
+              {result.skipped.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold">
+                    {result.skipped.length} fila{result.skipped.length === 1 ? '' : 's'} no se importó{result.skipped.length === 1 ? '' : 'ron'}:
+                  </p>
+                  <ul className="text-sm text-muted-foreground">
+                    {result.skipped.map((s, i) => (
+                      <li key={i}>Fila {s.row}: {s.error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <Button className="self-start" nativeButton={false} render={<Link href="/app/contacts">Volver a Contactos</Link>} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

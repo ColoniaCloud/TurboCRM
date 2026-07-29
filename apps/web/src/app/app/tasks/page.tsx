@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useApp } from '../app-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 type Task = {
   id: string
@@ -88,71 +94,76 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Tareas</h1>
-          <p>Seguimientos y pendientes del equipo.</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+      <div>
+        <h1 className="text-xl font-semibold">Tareas</h1>
+        <p className="text-sm text-muted-foreground">Seguimientos y pendientes del equipo.</p>
       </div>
 
-      <div className="panel">
-        <form className="inline-form" onSubmit={handleSubmit}>
-          <div className="inline-field">
-            <label htmlFor="task-title">Título</label>
-            <input
-              id="task-title" required
-              value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder="Llamar a María para cerrar propuesta"
-            />
-          </div>
-          <div className="inline-field" style={{ flex: '0 0 180px' }}>
-            <label htmlFor="task-due">Vencimiento</label>
-            <input
-              id="task-due" type="date"
-              value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn" disabled={submitting}>
-            {submitting ? 'Agregando…' : 'Agregar tarea'}
-          </button>
-        </form>
+      <Card>
+        <CardContent>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-1 min-w-48 flex-col gap-1.5">
+              <Label htmlFor="task-title">Título</Label>
+              <Input
+                id="task-title" required
+                value={title} onChange={(e) => setTitle(e.target.value)}
+                placeholder="Llamar a María para cerrar propuesta"
+              />
+            </div>
+            <div className="flex w-44 flex-col gap-1.5">
+              <Label htmlFor="task-due">Vencimiento</Label>
+              <Input
+                id="task-due" type="date"
+                value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Agregando…' : 'Agregar tarea'}
+            </Button>
+          </form>
 
-        {error && (
-          <div className="form-error" style={{ marginTop: 'var(--spacing-4)' }}>{error}</div>
-        )}
-      </div>
+          {error && (
+            <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="panel">
-        {!tasks ? (
-          <p className="empty-state">Cargando…</p>
-        ) : tasks.length === 0 ? (
-          <p className="empty-state">No hay tareas todavía.</p>
-        ) : (
-          <div className="task-list">
-            {tasks.map((task) => {
-              const due = formatDate(task.dueDate)
-              return (
-                <div key={task.id} className={`task-row${task.done ? ' done' : ''}`}>
-                  <input
-                    type="checkbox" className="task-checkbox"
-                    checked={task.done} onChange={() => handleToggle(task)}
-                  />
-                  <div className="task-body">
-                    <div className="task-title">{task.title}</div>
-                    {due && (
-                      <div className={`task-due${isOverdue(task.dueDate, task.done) ? ' overdue' : ''}`}>
-                        {due}
-                      </div>
-                    )}
+      <Card>
+        <CardContent>
+          {!tasks ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Cargando…</p>
+          ) : tasks.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">No hay tareas todavía.</p>
+          ) : (
+            <div className="flex flex-col divide-y">
+              {tasks.map((task) => {
+                const due = formatDate(task.dueDate)
+                return (
+                  <div key={task.id} className={`flex items-center gap-3 py-3 ${task.done ? 'opacity-50' : ''}`}>
+                    <Checkbox checked={task.done} onCheckedChange={() => handleToggle(task)} />
+                    <div className="flex-1">
+                      <div className={`text-sm ${task.done ? 'line-through' : ''}`}>{task.title}</div>
+                      {due && (
+                        <div className={`text-xs ${isOverdue(task.dueDate, task.done) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {due}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost" size="sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(task.id)}
+                    >
+                      Eliminar
+                    </Button>
                   </div>
-                  <button className="link-danger" onClick={() => handleDelete(task.id)}>Eliminar</button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -3,22 +3,36 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import {
+  LayoutDashboard, Users, Radar, Kanban, ListTodo, Receipt, Megaphone, Settings,
+} from 'lucide-react'
 import { signOut } from '@/lib/auth'
 import { getApiUrl } from '@/lib/api-url'
 import { AppProvider, type Me } from './app-context'
-import './app.css'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
 
 // Sin onboarding ni módulos por tenant en Turbo (single-tenant):
 // el nav es una lista fija.
-const NAV_ITEMS: { href: string; label: string }[] = [
-  { href: '/app',            label: 'Resumen' },
-  { href: '/app/contacts',   label: 'Contactos' },
-  { href: '/app/scraping',   label: 'Prospección' },
-  { href: '/app/pipeline',   label: 'Pipeline' },
-  { href: '/app/tasks',      label: 'Tareas' },
-  { href: '/app/payments',   label: 'Cobros' },
-  { href: '/app/campaigns',  label: 'Campañas' },
-  { href: '/app/settings',   label: 'Configuración' },
+const NAV_ITEMS = [
+  { href: '/app',            label: 'Resumen',       icon: LayoutDashboard },
+  { href: '/app/contacts',   label: 'Contactos',     icon: Users },
+  { href: '/app/scraping',   label: 'Prospección',   icon: Radar },
+  { href: '/app/pipeline',   label: 'Pipeline',      icon: Kanban },
+  { href: '/app/tasks',      label: 'Tareas',        icon: ListTodo },
+  { href: '/app/payments',   label: 'Cobros',        icon: Receipt },
+  { href: '/app/campaigns',  label: 'Campañas',      icon: Megaphone },
+  { href: '/app/settings',   label: 'Configuración', icon: Settings },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,19 +41,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const [me, setMe]           = useState<Me | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
-  useEffect(() => {
-    setSidebarCollapsed(localStorage.getItem('sidebar-collapsed') === '1')
-  }, [])
-
-  function toggleSidebar() {
-    setSidebarCollapsed((prev) => {
-      const next = !prev
-      localStorage.setItem('sidebar-collapsed', next ? '1' : '0')
-      return next
-    })
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -83,57 +84,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || !me) {
     return (
-      <div className="app-shell">
-        <main className="app-main">
-          <p className="app-loading">Cargando…</p>
-        </main>
+      <div className="flex min-h-svh items-center justify-center">
+        <p className="text-sm text-muted-foreground">Cargando…</p>
       </div>
     )
   }
 
   return (
     <AppProvider me={me}>
-      <div className="app-shell app-shell--with-sidebar">
-        <div className="app-content">
-          <header className="app-header">
-            <span className="app-tenant">{me.user.email}</span>
-            <button className="app-signout" onClick={handleSignOut}>Cerrar sesión</button>
+      <SidebarProvider>
+        <SidebarInset>
+          <header className="flex h-12 items-center justify-between border-b px-6">
+            <SidebarTrigger />
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">{me.user.email}</span>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>Cerrar sesión</Button>
+            </div>
           </header>
-
-          <main className="app-main app-main--scroll">
+          <main className="flex-1 overflow-y-auto p-8">
             {children}
           </main>
-        </div>
+        </SidebarInset>
 
-        <aside className={`app-sidebar${sidebarCollapsed ? ' app-sidebar--collapsed' : ''}`}>
-          <button
-            type="button"
-            className="app-sidebar-toggle"
-            onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
-            title={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
-          >
-            {sidebarCollapsed ? '«' : '»'}
-          </button>
-
-          <div className="app-brand">
-            <img src="/brand/icono.svg" alt="" className="app-brand-icon" />
-            {!sidebarCollapsed && <span>Colonia Cloud</span>}
-          </div>
-          <nav className="app-nav">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`app-nav-link${pathname === item.href ? ' active' : ''}`}
-                title={item.label}
-              >
-                {sidebarCollapsed ? item.label.slice(0, 2) : item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-      </div>
+        <Sidebar side="right" collapsible="icon">
+          <SidebarHeader>
+            <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-muted-foreground">
+              <img src="/brand/icono.svg" alt="" className="size-5 shrink-0" />
+              <span className="group-data-[collapsible=icon]:hidden">Colonia Cloud</span>
+            </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarMenu>
+              {NAV_ITEMS.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    render={
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    }
+                  />
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarContent>
+        </Sidebar>
+      </SidebarProvider>
     </AppProvider>
   )
 }
