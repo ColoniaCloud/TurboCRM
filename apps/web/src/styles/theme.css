@@ -185,7 +185,9 @@
 
 html {
   font-family: var(--font-sans);
-  font-size: var(--font-size);
+  /* 50% más grande que la base del sistema (0.875rem) — todo lo demás
+     (--font-size-*, spacing en rem, etc.) escala relativo a esto. */
+  font-size: 131.25%;
   line-height: var(--line-height);
   letter-spacing: var(--letter-spacing);
   color: var(--color-text);

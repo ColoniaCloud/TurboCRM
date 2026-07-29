@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db'
-import { projects, projectReminders, projectEnvVars, contacts } from '../db/schema'
+import { projects, projectReminders, projectEnvVars, projectAccounts, projectAccountFiles, contacts } from '../db/schema'
 import { authMiddleware } from '../middleware/auth'
 import { logActivity } from '../contacts/activity-log'
 import type { HonoVariables } from '../types'
@@ -11,13 +11,20 @@ import type { ProjectReminderKind, ProjectReminderRecurrence } from '@colonia-cr
 const REMINDER_KINDS: ProjectReminderKind[] = ['hosting', 'domain', 'maintenance', 'other']
 const REMINDER_RECURRENCES: ProjectReminderRecurrence[] = ['none', 'monthly', 'quarterly', 'biannual', 'annual']
 
+// Formatos de texto habituales + PDF. Se valida por extensión (no por MIME
+// declarado por el browser, que para varios de estos tipos llega como
+// application/octet-stream y no sirve para validar nada).
+const ALLOWED_FILE_EXTENSIONS = [
+  '.txt', '.md', '.csv', '.json', '.log', '.yml', '.yaml', '.xml', '.env', '.pdf',
+]
+const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024
+
 type ProjectBody = Partial<{
   contactId: string
   name: string
   platform: string | null
   url: string | null
   notes: string | null
-  accounts: Record<string, string>
 }>
 
 type ReminderBody = Partial<{
@@ -35,6 +42,15 @@ type EnvVarBody = Partial<{
   value: string
 }>
 
+type EnvVarImportBody = Partial<{
+  vars: Array<{ name?: string; value?: string }>
+}>
+
+type AccountBody = Partial<{
+  label: string
+  value: string
+}>
+
 const projectsRoutes = new Hono<{ Variables: HonoVariables }>()
 projectsRoutes.use('*', authMiddleware)
 
@@ -44,6 +60,14 @@ async function findProjectOr404(id: string) {
     throw new HTTPException(404, { message: 'Proyecto no encontrado' })
   }
   return project
+}
+
+async function findAccountOr404(projectId: string, accountId: string) {
+  const account = await db.query.projectAccounts.findFirst({ where: eq(projectAccounts.id, accountId) })
+  if (!account || account.projectId !== projectId) {
+    throw new HTTPException(404, { message: 'Cuenta no encontrada' })
+  }
+  return account
 }
 
 projectsRoutes.get('/', async (c) => {
@@ -102,7 +126,7 @@ projectsRoutes.get('/:id', async (c) => {
 
 projectsRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id')
-  const existing = await findProjectOr404(id)
+  await findProjectOr404(id)
 
   const body = await c.req.json().catch(() => null) as ProjectBody | null
 
@@ -117,9 +141,6 @@ projectsRoutes.patch('/:id', async (c) => {
   if (body?.platform !== undefined) patch.platform = body.platform?.trim() || null
   if (body?.url !== undefined) patch.url = body.url?.trim() || null
   if (body?.notes !== undefined) patch.notes = body.notes?.trim() || null
-  if (body?.accounts !== undefined) {
-    patch.accounts = { ...existing.accounts, ...body.accounts }
-  }
 
   const [updated] = await db.update(projects).set(patch).where(eq(projects.id, id)).returning()
   return c.json({ status: 'ok', item: updated })
@@ -263,6 +284,30 @@ projectsRoutes.post('/:id/env-vars', async (c) => {
   return c.json({ status: 'ok', item: envVar }, 201)
 })
 
+// Alta masiva a partir de un archivo .env parseado del lado del cliente
+// (ver KEY=VALUE por línea, comentarios con # e ignorados). Inserta todas
+// las entradas válidas de una sola vez.
+projectsRoutes.post('/:id/env-vars/import', async (c) => {
+  const projectId = c.req.param('id')
+  await findProjectOr404(projectId)
+
+  const body = await c.req.json().catch(() => null) as EnvVarImportBody | null
+
+  const entries = (body?.vars ?? [])
+    .map((v) => ({ name: v.name?.trim() ?? '', value: v.value?.trim() ?? '' }))
+    .filter((v) => v.name && v.value)
+
+  if (entries.length === 0) {
+    throw new HTTPException(400, { message: 'No se encontraron variables válidas para importar' })
+  }
+
+  const inserted = await db.insert(projectEnvVars)
+    .values(entries.map((v) => ({ projectId, name: v.name, value: v.value })))
+    .returning()
+
+  return c.json({ status: 'ok', items: inserted }, 201)
+})
+
 projectsRoutes.delete('/:id/env-vars/:envVarId', async (c) => {
   const projectId = c.req.param('id')
   const envVarId = c.req.param('envVarId')
@@ -274,6 +319,162 @@ projectsRoutes.delete('/:id/env-vars/:envVarId', async (c) => {
   }
 
   await db.delete(projectEnvVars).where(eq(projectEnvVars.id, envVarId))
+  return c.json({ status: 'ok' })
+})
+
+projectsRoutes.get('/:id/accounts', async (c) => {
+  const projectId = c.req.param('id')
+  await findProjectOr404(projectId)
+
+  const rows = await db.query.projectAccounts.findMany({
+    where: eq(projectAccounts.projectId, projectId),
+    orderBy: desc(projectAccounts.createdAt),
+  })
+
+  return c.json({ status: 'ok', items: rows })
+})
+
+projectsRoutes.post('/:id/accounts', async (c) => {
+  const projectId = c.req.param('id')
+  await findProjectOr404(projectId)
+
+  const body = await c.req.json().catch(() => null) as AccountBody | null
+
+  const label = body?.label?.trim()
+  const value = body?.value?.trim()
+  if (!label) {
+    throw new HTTPException(400, { message: 'El servicio es requerido' })
+  }
+  if (!value) {
+    throw new HTTPException(400, { message: 'La cuenta/identificador es requerido' })
+  }
+
+  const [account] = await db.insert(projectAccounts).values({ projectId, label, value }).returning()
+
+  return c.json({ status: 'ok', item: account }, 201)
+})
+
+projectsRoutes.patch('/:id/accounts/:accountId', async (c) => {
+  const projectId = c.req.param('id')
+  const accountId = c.req.param('accountId')
+  await findAccountOr404(projectId, accountId)
+
+  const body = await c.req.json().catch(() => null) as AccountBody | null
+
+  const patch: Record<string, unknown> = {}
+  if (body?.label !== undefined) {
+    const label = body.label.trim()
+    if (!label) {
+      throw new HTTPException(400, { message: 'El servicio no puede estar vacío' })
+    }
+    patch.label = label
+  }
+  if (body?.value !== undefined) {
+    const value = body.value.trim()
+    if (!value) {
+      throw new HTTPException(400, { message: 'La cuenta no puede estar vacía' })
+    }
+    patch.value = value
+  }
+
+  const [updated] = await db.update(projectAccounts).set(patch).where(eq(projectAccounts.id, accountId)).returning()
+  return c.json({ status: 'ok', item: updated })
+})
+
+projectsRoutes.delete('/:id/accounts/:accountId', async (c) => {
+  const projectId = c.req.param('id')
+  const accountId = c.req.param('accountId')
+  await findAccountOr404(projectId, accountId)
+
+  await db.delete(projectAccounts).where(eq(projectAccounts.id, accountId))
+  return c.json({ status: 'ok' })
+})
+
+projectsRoutes.get('/:id/accounts/:accountId/files', async (c) => {
+  const projectId = c.req.param('id')
+  const accountId = c.req.param('accountId')
+  await findAccountOr404(projectId, accountId)
+
+  const rows = await db.query.projectAccountFiles.findMany({
+    where: eq(projectAccountFiles.accountId, accountId),
+    orderBy: desc(projectAccountFiles.createdAt),
+    columns: { id: true, accountId: true, fileName: true, mimeType: true, fileSize: true, createdAt: true },
+  })
+
+  return c.json({ status: 'ok', items: rows })
+})
+
+projectsRoutes.post('/:id/accounts/:accountId/files', async (c) => {
+  const projectId = c.req.param('id')
+  const accountId = c.req.param('accountId')
+  await findAccountOr404(projectId, accountId)
+
+  const body = await c.req.parseBody().catch(() => null)
+  const file = body?.file
+
+  if (!file || typeof file === 'string' || Array.isArray(file)) {
+    throw new HTTPException(400, { message: 'Archivo requerido' })
+  }
+
+  const fileName = file.name
+  const dotIndex = fileName.lastIndexOf('.')
+  const ext = dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : ''
+  if (!ALLOWED_FILE_EXTENSIONS.includes(ext)) {
+    throw new HTTPException(400, { message: `Formato no permitido (${ext || 'sin extensión'}). Solo texto plano o PDF.` })
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    throw new HTTPException(400, { message: 'El archivo supera el límite de 8MB' })
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  const [saved] = await db.insert(projectAccountFiles).values({
+    accountId,
+    fileName,
+    mimeType: file.type || 'application/octet-stream',
+    fileSize: file.size,
+    fileData: buffer.toString('base64'),
+  }).returning({
+    id: projectAccountFiles.id,
+    accountId: projectAccountFiles.accountId,
+    fileName: projectAccountFiles.fileName,
+    mimeType: projectAccountFiles.mimeType,
+    fileSize: projectAccountFiles.fileSize,
+    createdAt: projectAccountFiles.createdAt,
+  })
+
+  return c.json({ status: 'ok', item: saved }, 201)
+})
+
+projectsRoutes.get('/:id/accounts/:accountId/files/:fileId', async (c) => {
+  const projectId = c.req.param('id')
+  const accountId = c.req.param('accountId')
+  const fileId = c.req.param('fileId')
+  await findAccountOr404(projectId, accountId)
+
+  const file = await db.query.projectAccountFiles.findFirst({ where: eq(projectAccountFiles.id, fileId) })
+  if (!file || file.accountId !== accountId) {
+    throw new HTTPException(404, { message: 'Archivo no encontrado' })
+  }
+
+  const buffer = Buffer.from(file.fileData, 'base64')
+  c.header('Content-Type', file.mimeType)
+  c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(file.fileName)}"`)
+  return c.body(buffer)
+})
+
+projectsRoutes.delete('/:id/accounts/:accountId/files/:fileId', async (c) => {
+  const projectId = c.req.param('id')
+  const accountId = c.req.param('accountId')
+  const fileId = c.req.param('fileId')
+  await findAccountOr404(projectId, accountId)
+
+  const file = await db.query.projectAccountFiles.findFirst({ where: eq(projectAccountFiles.id, fileId) })
+  if (!file || file.accountId !== accountId) {
+    throw new HTTPException(404, { message: 'Archivo no encontrado' })
+  }
+
+  await db.delete(projectAccountFiles).where(eq(projectAccountFiles.id, fileId))
   return c.json({ status: 'ok' })
 })
 

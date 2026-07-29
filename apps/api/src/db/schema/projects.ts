@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { contacts } from './contacts'
 
 export const projects = pgTable('projects', {
@@ -8,9 +8,6 @@ export const projects = pgTable('projects', {
   platform: text('platform'),
   url: text('url'),
   notes: text('notes'),
-  // Referencias de cuentas digitales (ej. { "Google Analytics": "cliente@gmail.com" }) —
-  // NUNCA contraseñas, solo etiquetas/identificadores para saber qué cuenta se usó.
-  accounts: jsonb('accounts').$type<Record<string, string>>().notNull().default({}),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

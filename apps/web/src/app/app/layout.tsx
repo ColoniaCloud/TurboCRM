@@ -27,6 +27,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const [me, setMe]           = useState<Me | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  useEffect(() => {
+    setSidebarCollapsed(localStorage.getItem('sidebar-collapsed') === '1')
+  }, [])
+
+  function toggleSidebar() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('sidebar-collapsed', next ? '1' : '0')
+      return next
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -81,24 +94,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider me={me}>
       <div className="app-shell app-shell--with-sidebar">
-        <aside className="app-sidebar">
-          <div className="app-brand">
-            <img src="/brand/icono.svg" alt="" className="app-brand-icon" />
-            <span>Colonia Cloud</span>
-          </div>
-          <nav className="app-nav">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`app-nav-link${pathname === item.href ? ' active' : ''}`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
         <div className="app-content">
           <header className="app-header">
             <span className="app-tenant">{me.user.email}</span>
@@ -109,6 +104,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {children}
           </main>
         </div>
+
+        <aside className={`app-sidebar${sidebarCollapsed ? ' app-sidebar--collapsed' : ''}`}>
+          <button
+            type="button"
+            className="app-sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            title={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+          >
+            {sidebarCollapsed ? '«' : '»'}
+          </button>
+
+          <div className="app-brand">
+            <img src="/brand/icono.svg" alt="" className="app-brand-icon" />
+            {!sidebarCollapsed && <span>Colonia Cloud</span>}
+          </div>
+          <nav className="app-nav">
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`app-nav-link${pathname === item.href ? ' active' : ''}`}
+                title={item.label}
+              >
+                {sidebarCollapsed ? item.label.slice(0, 2) : item.label}
+              </Link>
+            ))}
+          </nav>
+        </aside>
       </div>
     </AppProvider>
   )

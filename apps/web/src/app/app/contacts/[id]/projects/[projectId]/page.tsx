@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ProjectReminderKind, ProjectReminderRecurrence } from '@colonia-crm/shared'
 import { useApp } from '../../../../app-context'
+import { getApiUrl } from '@/lib/api-url'
 
 type Project = {
   id: string
@@ -13,7 +14,6 @@ type Project = {
   platform: string | null
   url: string | null
   notes: string | null
-  accounts: Record<string, string>
 }
 
 type ReminderItem = {
@@ -35,6 +35,22 @@ type EnvVarItem = {
   createdAt: string
 }
 
+type AccountItem = {
+  id: string
+  label: string
+  value: string
+  createdAt: string
+}
+
+type AccountFileItem = {
+  id: string
+  accountId: string
+  fileName: string
+  mimeType: string
+  fileSize: number
+  createdAt: string
+}
+
 const KIND_LABELS: Record<ProjectReminderKind, string> = {
   hosting: 'Hosting',
   domain: 'Dominio',
@@ -50,6 +66,8 @@ const RECURRENCE_LABELS: Record<ProjectReminderRecurrence, string> = {
   annual: 'Anual',
 }
 
+const ACCOUNT_FILE_ACCEPT = '.txt,.md,.csv,.json,.log,.yml,.yaml,.xml,.env,.pdf'
+
 function formatDueDate(iso: string): string {
   return new Date(iso).toLocaleDateString('es-UY', { day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -64,6 +82,40 @@ function formatAmount(amount: string | null, currency: string | null): string {
   return `${currency ?? 'USD'} ${Number.isFinite(num) ? num.toLocaleString('es-UY') : amount}`
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+// Parser simple de .env: KEY=VALUE por línea, ignora comentarios (#) y
+// líneas vacías, soporta "export KEY=..." y saca comillas envolventes.
+function parseEnvFile(text: string): { name: string; value: string }[] {
+  const result: { name: string; value: string }[] = []
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+
+    const withoutExport = line.startsWith('export ') ? line.slice(7).trim() : line
+    const eqIndex = withoutExport.indexOf('=')
+    if (eqIndex === -1) continue
+
+    const name = withoutExport.slice(0, eqIndex).trim()
+    let value = withoutExport.slice(eqIndex + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+      (value.startsWith("'") && value.endsWith("'") && value.length >= 2)
+    ) {
+      value = value.slice(1, -1)
+    }
+
+    if (name) result.push({ name, value })
+  }
+
+  return result
+}
+
 export default function ProjectDetailPage() {
   const { id, projectId } = useParams<{ id: string; projectId: string }>()
   const router = useRouter()
@@ -74,16 +126,20 @@ export default function ProjectDetailPage() {
   const [error, setError]       = useState<string | null>(null)
   const [saving, setSaving]     = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [mode, setMode]         = useState<'view' | 'edit'>('view')
 
   const [name, setName]         = useState('')
   const [platform, setPlatform] = useState('')
   const [url, setUrl]           = useState('')
   const [notes, setNotes]       = useState('')
 
+  const [accounts, setAccounts]               = useState<AccountItem[] | null>(null)
   const [accountsError, setAccountsError]     = useState<string | null>(null)
   const [newAccountLabel, setNewAccountLabel] = useState('')
   const [newAccountValue, setNewAccountValue] = useState('')
   const [savingAccount, setSavingAccount]     = useState(false)
+  const [filesByAccount, setFilesByAccount]   = useState<Record<string, AccountFileItem[]>>({})
+  const [uploadingAccountId, setUploadingAccountId] = useState<string | null>(null)
 
   const [reminders, setReminders]           = useState<ReminderItem[] | null>(null)
   const [remindersError, setRemindersError] = useState<string | null>(null)
@@ -96,11 +152,12 @@ export default function ProjectDetailPage() {
   const [reminderRecurrence, setReminderRecurrence] = useState<ProjectReminderRecurrence>('none')
   const [reminderDaysBefore, setReminderDaysBefore] = useState('7')
 
-  const [envVars, setEnvVars]                 = useState<EnvVarItem[] | null>(null)
-  const [envVarsError, setEnvVarsError]       = useState<string | null>(null)
-  const [creatingEnvVar, setCreatingEnvVar]   = useState(false)
-  const [newEnvVarName, setNewEnvVarName]     = useState('')
-  const [newEnvVarValue, setNewEnvVarValue]   = useState('')
+  const [envVars, setEnvVars]               = useState<EnvVarItem[] | null>(null)
+  const [envVarsError, setEnvVarsError]     = useState<string | null>(null)
+  const [creatingEnvVar, setCreatingEnvVar] = useState(false)
+  const [newEnvVarName, setNewEnvVarName]   = useState('')
+  const [newEnvVarValue, setNewEnvVarValue] = useState('')
+  const [importingEnv, setImportingEnv]     = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -147,6 +204,28 @@ export default function ProjectDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiFetch, projectId])
 
+  async function loadAccountFiles(accountId: string) {
+    const res = await apiFetch(`/api/projects/${projectId}/accounts/${accountId}/files`)
+    const data = await res.json() as { items: AccountFileItem[] }
+    setFilesByAccount((prev) => ({ ...prev, [accountId]: data.items }))
+  }
+
+  async function loadAccounts() {
+    const res = await apiFetch(`/api/projects/${projectId}/accounts`)
+    const data = await res.json() as { items: AccountItem[] }
+    setAccounts(data.items)
+    await Promise.all(data.items.map((acc) => loadAccountFiles(acc.id)))
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadAccounts().catch(() => { if (!cancelled) setAccountsError('No se pudieron cargar las cuentas') })
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiFetch, projectId])
+
   async function loadEnvVars() {
     const res = await apiFetch(`/api/projects/${projectId}/env-vars`)
     const data = await res.json() as { items: EnvVarItem[] }
@@ -161,6 +240,16 @@ export default function ProjectDetailPage() {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiFetch, projectId])
+
+  function handleCancelEdit() {
+    if (project) {
+      setName(project.name)
+      setPlatform(project.platform ?? '')
+      setUrl(project.url ?? '')
+      setNotes(project.notes ?? '')
+    }
+    setMode('view')
+  }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -185,6 +274,7 @@ export default function ProjectDetailPage() {
 
       const data = await res.json() as { item: Project }
       setProject(data.item)
+      setMode('view')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el proyecto')
     } finally {
@@ -202,17 +292,16 @@ export default function ProjectDetailPage() {
     setAccountsError(null)
 
     try {
-      const res = await apiFetch(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ accounts: { [label]: value } }),
+      const res = await apiFetch(`/api/projects/${projectId}/accounts`, {
+        method: 'POST',
+        body: JSON.stringify({ label, value }),
       })
       if (!res.ok) {
         throw new Error('No se pudo guardar la cuenta')
       }
-      const data = await res.json() as { item: Project }
-      setProject(data.item)
       setNewAccountLabel('')
       setNewAccountValue('')
+      await loadAccounts()
     } catch (err) {
       setAccountsError(err instanceof Error ? err.message : 'No se pudo guardar la cuenta')
     } finally {
@@ -220,21 +309,48 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function handleRemoveAccount(label: string) {
+  async function handleRemoveAccount(accountId: string) {
     setAccountsError(null)
     try {
-      const res = await apiFetch(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ accounts: { [label]: '' } }),
-      })
+      const res = await apiFetch(`/api/projects/${projectId}/accounts/${accountId}`, { method: 'DELETE' })
       if (!res.ok) {
         throw new Error('No se pudo quitar la cuenta')
       }
-      const data = await res.json() as { item: Project }
-      setProject(data.item)
+      await loadAccounts()
     } catch (err) {
       setAccountsError(err instanceof Error ? err.message : 'No se pudo quitar la cuenta')
     }
+  }
+
+  async function handleUploadFile(accountId: string, file: File) {
+    setAccountsError(null)
+    setUploadingAccountId(accountId)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await apiFetch(`/api/projects/${projectId}/accounts/${accountId}/files`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null
+        throw new Error(body?.error ?? 'No se pudo subir el archivo')
+      }
+
+      await loadAccountFiles(accountId)
+    } catch (err) {
+      setAccountsError(err instanceof Error ? err.message : 'No se pudo subir el archivo')
+    } finally {
+      setUploadingAccountId(null)
+    }
+  }
+
+  async function handleDeleteFile(accountId: string, fileId: string) {
+    await apiFetch(`/api/projects/${projectId}/accounts/${accountId}/files/${fileId}`, { method: 'DELETE' })
+    await loadAccountFiles(accountId)
   }
 
   async function handleCreateReminder(e: React.FormEvent<HTMLFormElement>) {
@@ -317,6 +433,36 @@ export default function ProjectDetailPage() {
     await loadEnvVars()
   }
 
+  async function handleImportEnvFile(file: File) {
+    setEnvVarsError(null)
+    setImportingEnv(true)
+
+    try {
+      const text = await file.text()
+      const vars = parseEnvFile(text)
+
+      if (vars.length === 0) {
+        throw new Error('No se encontraron variables válidas en el archivo')
+      }
+
+      const res = await apiFetch(`/api/projects/${projectId}/env-vars/import`, {
+        method: 'POST',
+        body: JSON.stringify({ vars }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null
+        throw new Error(body?.error ?? 'No se pudo importar el archivo')
+      }
+
+      await loadEnvVars()
+    } catch (err) {
+      setEnvVarsError(err instanceof Error ? err.message : 'No se pudo importar el archivo')
+    } finally {
+      setImportingEnv(false)
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true)
     await apiFetch(`/api/projects/${projectId}`, { method: 'DELETE' })
@@ -340,8 +486,6 @@ export default function ProjectDetailPage() {
     )
   }
 
-  const accountEntries = Object.entries(project.accounts).filter(([, value]) => value !== '')
-
   return (
     <div className="page">
       <div className="page-header">
@@ -349,93 +493,252 @@ export default function ProjectDetailPage() {
           <Link href={`/app/contacts/${id}`} className="back-link">← Volver al contacto</Link>
           <h1>{project.name}</h1>
         </div>
-        <button className="link-danger" onClick={handleDelete} disabled={deleting}>
-          {deleting ? 'Eliminando…' : 'Eliminar proyecto'}
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--spacing-3)', alignItems: 'center' }}>
+          {mode === 'view' ? (
+            <button type="button" className="btn-ghost" onClick={() => setMode('edit')}>Editar</button>
+          ) : (
+            <button type="button" className="btn-ghost" onClick={handleCancelEdit} disabled={saving}>Cancelar</button>
+          )}
+          <button className="link-danger" onClick={handleDelete} disabled={deleting}>
+            {deleting ? 'Eliminando…' : 'Eliminar proyecto'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
 
       <div className="panel">
         <h2>Datos del proyecto</h2>
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-          <div className="detail-form-grid">
-            <div className="inline-field">
-              <label htmlFor="project-name">Nombre</label>
-              <input id="project-name" required value={name} onChange={(e) => setName(e.target.value)} />
+        {mode === 'view' ? (
+          <div className="detail-summary-grid">
+            <div>
+              <div className="summary-field-label">Nombre</div>
+              <div className="summary-field-value">{project.name}</div>
             </div>
-            <div className="inline-field">
-              <label htmlFor="project-platform">Plataforma</label>
-              <input
-                id="project-platform"
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                placeholder="WordPress, Next.js, Shopify…"
-              />
+            <div>
+              <div className="summary-field-label">Plataforma</div>
+              <div className={`summary-field-value${project.platform ? '' : ' summary-field-value--empty'}`}>
+                {project.platform || 'Sin especificar'}
+              </div>
             </div>
-            <div className="inline-field span-2">
-              <label htmlFor="project-url">Sitio</label>
-              <input id="project-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+            <div className="span-2">
+              <div className="summary-field-label">Sitio</div>
+              {project.url ? (
+                <a className="summary-field-value" href={project.url} target="_blank" rel="noreferrer">{project.url}</a>
+              ) : (
+                <div className="summary-field-value summary-field-value--empty">Sin cargar</div>
+              )}
             </div>
-            <div className="inline-field span-2">
-              <label htmlFor="project-notes">Notas</label>
-              <textarea id="project-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <div className="span-2">
+              <div className="summary-field-label">Notas</div>
+              <div className={`summary-field-value${project.notes ? '' : ' summary-field-value--empty'}`}>
+                {project.notes || 'Sin notas'}
+              </div>
             </div>
           </div>
-          <button type="submit" className="btn" disabled={saving} style={{ alignSelf: 'flex-start' }}>
-            {saving ? 'Guardando…' : 'Guardar cambios'}
-          </button>
-        </form>
+        ) : (
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
+            <div className="detail-form-grid">
+              <div className="inline-field">
+                <label htmlFor="project-name">Nombre</label>
+                <input id="project-name" required value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="inline-field">
+                <label htmlFor="project-platform">Plataforma</label>
+                <input
+                  id="project-platform"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                  placeholder="WordPress, Next.js, Shopify…"
+                />
+              </div>
+              <div className="inline-field span-2">
+                <label htmlFor="project-url">Sitio</label>
+                <input id="project-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+              </div>
+              <div className="inline-field span-2">
+                <label htmlFor="project-notes">Notas</label>
+                <textarea id="project-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
+            </div>
+            <button type="submit" className="btn" disabled={saving} style={{ alignSelf: 'flex-start' }}>
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </form>
+        )}
       </div>
 
-      <div className="panel">
-        <h2>Cuentas digitales</h2>
-        <p className="audit-intro">
-          Referencias de qué cuenta se usa para cada servicio (ej. "Google Analytics" → email de la cuenta).
-          No guardes contraseñas acá — para credenciales reales usá tu gestor de contraseñas.
-        </p>
+      <div className="project-columns">
+        <div className="panel">
+          <h2>Cuentas digitales</h2>
+          <p className="audit-intro">
+            Referencias de qué cuenta se usa para cada servicio (ej. "Google Analytics" → email de la cuenta).
+            No guardes contraseñas acá — para credenciales reales usá tu gestor de contraseñas.
+          </p>
 
-        {accountsError && (
-          <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{accountsError}</div>
-        )}
+          {accountsError && (
+            <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{accountsError}</div>
+          )}
 
-        {accountEntries.length === 0 ? (
-          <p className="empty-state">Todavía no cargaste ninguna cuenta.</p>
-        ) : (
-          <ul className="account-list">
-            {accountEntries.map(([label, value]) => (
-              <li key={label} className="account-item">
-                <span className="account-item-label">{label}</span>
-                <span className="account-item-value">{value}</span>
-                <button type="button" className="tag-chip-remove" onClick={() => handleRemoveAccount(label)}>✕</button>
-              </li>
-            ))}
-          </ul>
-        )}
+          {!accounts ? (
+            <p className="empty-state">Cargando…</p>
+          ) : accounts.length === 0 ? (
+            <p className="empty-state">Todavía no cargaste ninguna cuenta.</p>
+          ) : (
+            <ul className="account-list">
+              {accounts.map((account) => (
+                <li key={account.id} className="account-item">
+                  <div className="account-item-row">
+                    <span className="account-item-label">{account.label}</span>
+                    <span className="account-item-value">{account.value}</span>
+                    <button type="button" className="tag-chip-remove" onClick={() => handleRemoveAccount(account.id)}>✕</button>
+                  </div>
 
-        <form className="inline-form" onSubmit={handleAddAccount} style={{ marginTop: 'var(--spacing-4)' }}>
-          <div className="inline-field">
-            <label htmlFor="account-label">Servicio</label>
-            <input
-              id="account-label"
-              value={newAccountLabel}
-              onChange={(e) => setNewAccountLabel(e.target.value)}
-              placeholder="Google Analytics, Hosting…"
-            />
+                  {(filesByAccount[account.id] ?? []).length > 0 && (
+                    <ul className="account-files">
+                      {filesByAccount[account.id]!.map((file) => (
+                        <li key={file.id} className="account-file">
+                          <a
+                            className="account-file-name"
+                            href={`${getApiUrl()}/api/projects/${projectId}/accounts/${account.id}/files/${file.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {file.fileName}
+                          </a>
+                          <span className="account-file-size">{formatFileSize(file.fileSize)}</span>
+                          <button
+                            type="button"
+                            className="tag-chip-remove"
+                            onClick={() => handleDeleteFile(account.id, file.id)}
+                          >
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <label className="account-file-upload">
+                    Adjuntar archivo (opcional, texto o PDF):
+                    <input
+                      type="file"
+                      accept={ACCOUNT_FILE_ACCEPT}
+                      disabled={uploadingAccountId === account.id}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) void handleUploadFile(account.id, file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <form className="inline-form" onSubmit={handleAddAccount} style={{ marginTop: 'var(--spacing-4)' }}>
+            <div className="inline-field">
+              <label htmlFor="account-label">Servicio</label>
+              <input
+                id="account-label"
+                value={newAccountLabel}
+                onChange={(e) => setNewAccountLabel(e.target.value)}
+                placeholder="Google Analytics, Hosting…"
+              />
+            </div>
+            <div className="inline-field">
+              <label htmlFor="account-value">Cuenta / identificador</label>
+              <input
+                id="account-value"
+                value={newAccountValue}
+                onChange={(e) => setNewAccountValue(e.target.value)}
+                placeholder="cliente@gmail.com"
+              />
+            </div>
+            <button type="submit" className="btn-ghost" disabled={savingAccount || !newAccountLabel.trim() || !newAccountValue.trim()}>
+              {savingAccount ? 'Agregando…' : 'Agregar'}
+            </button>
+          </form>
+        </div>
+
+        <div className="panel">
+          <h2>Variables de entorno</h2>
+
+          {envVarsError && (
+            <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{envVarsError}</div>
+          )}
+
+          {!envVars ? (
+            <p className="empty-state">Cargando…</p>
+          ) : envVars.length === 0 ? (
+            <p className="empty-state">Todavía no hay variables de entorno cargadas.</p>
+          ) : (
+            <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Valor</th>
+                    <th>Creada</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {envVars.map((envVar) => (
+                    <tr key={envVar.id}>
+                      <td>{envVar.name}</td>
+                      <td>{envVar.value}</td>
+                      <td>{formatCreatedAt(envVar.createdAt)}</td>
+                      <td><button className="link-danger" onClick={() => handleDeleteEnvVar(envVar.id)}>Eliminar</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <form className="inline-form" onSubmit={handleCreateEnvVar}>
+            <div className="inline-field">
+              <label htmlFor="env-var-name">Nombre</label>
+              <input
+                id="env-var-name" required
+                value={newEnvVarName}
+                onChange={(e) => setNewEnvVarName(e.target.value)}
+                placeholder="DATABASE_URL"
+              />
+            </div>
+            <div className="inline-field">
+              <label htmlFor="env-var-value">Valor</label>
+              <input
+                id="env-var-value" required
+                value={newEnvVarValue}
+                onChange={(e) => setNewEnvVarValue(e.target.value)}
+                placeholder="postgres://…"
+              />
+            </div>
+            <button type="submit" className="btn" disabled={creatingEnvVar || !newEnvVarName.trim() || !newEnvVarValue.trim()}>
+              {creatingEnvVar ? 'Agregando…' : 'Agregar variable'}
+            </button>
+          </form>
+
+          <div className="inline-form" style={{ marginTop: 'var(--spacing-3)' }}>
+            <div className="inline-field">
+              <label htmlFor="env-var-import">Importar desde archivo .env</label>
+              <input
+                id="env-var-import"
+                type="file"
+                accept=".env,text/plain"
+                disabled={importingEnv}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void handleImportEnvFile(file)
+                  e.target.value = ''
+                }}
+              />
+            </div>
           </div>
-          <div className="inline-field">
-            <label htmlFor="account-value">Cuenta / identificador</label>
-            <input
-              id="account-value"
-              value={newAccountValue}
-              onChange={(e) => setNewAccountValue(e.target.value)}
-              placeholder="cliente@gmail.com"
-            />
-          </div>
-          <button type="submit" className="btn-ghost" disabled={savingAccount || !newAccountLabel.trim() || !newAccountValue.trim()}>
-            {savingAccount ? 'Agregando…' : 'Agregar'}
-          </button>
-        </form>
+        </div>
       </div>
 
       <div className="panel">
@@ -549,67 +852,6 @@ export default function ProjectDetailPage() {
           </div>
           <button type="submit" className="btn" disabled={creatingReminder}>
             {creatingReminder ? 'Agregando…' : 'Agregar vencimiento'}
-          </button>
-        </form>
-      </div>
-
-      <div className="panel">
-        <h2>Variables de entorno</h2>
-
-        {envVarsError && (
-          <div className="form-error" style={{ marginBottom: 'var(--spacing-3)' }}>{envVarsError}</div>
-        )}
-
-        {!envVars ? (
-          <p className="empty-state">Cargando…</p>
-        ) : envVars.length === 0 ? (
-          <p className="empty-state">Todavía no hay variables de entorno cargadas.</p>
-        ) : (
-          <div className="table-wrap" style={{ marginBottom: 'var(--spacing-4)' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Valor</th>
-                  <th>Creada</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {envVars.map((envVar) => (
-                  <tr key={envVar.id}>
-                    <td>{envVar.name}</td>
-                    <td>{envVar.value}</td>
-                    <td>{formatCreatedAt(envVar.createdAt)}</td>
-                    <td><button className="link-danger" onClick={() => handleDeleteEnvVar(envVar.id)}>Eliminar</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <form className="inline-form" onSubmit={handleCreateEnvVar}>
-          <div className="inline-field">
-            <label htmlFor="env-var-name">Nombre</label>
-            <input
-              id="env-var-name" required
-              value={newEnvVarName}
-              onChange={(e) => setNewEnvVarName(e.target.value)}
-              placeholder="DATABASE_URL"
-            />
-          </div>
-          <div className="inline-field">
-            <label htmlFor="env-var-value">Valor</label>
-            <input
-              id="env-var-value" required
-              value={newEnvVarValue}
-              onChange={(e) => setNewEnvVarValue(e.target.value)}
-              placeholder="postgres://…"
-            />
-          </div>
-          <button type="submit" className="btn" disabled={creatingEnvVar || !newEnvVarName.trim() || !newEnvVarValue.trim()}>
-            {creatingEnvVar ? 'Agregando…' : 'Agregar variable'}
           </button>
         </form>
       </div>
