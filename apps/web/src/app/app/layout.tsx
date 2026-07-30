@@ -84,7 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || !me) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
+      <div className="dark flex min-h-svh items-center justify-center bg-background text-foreground">
         <p className="text-sm text-muted-foreground">Cargando…</p>
       </div>
     )
@@ -92,13 +92,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AppProvider me={me}>
-      <SidebarProvider>
+      <SidebarProvider className="dark">
         <SidebarInset>
-          <header className="flex h-12 items-center justify-between border-b px-6">
-            <SidebarTrigger />
+          <header className="flex h-12 items-center justify-end border-b px-6">
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">{me.user.email}</span>
               <Button variant="outline" size="sm" onClick={handleSignOut}>Cerrar sesión</Button>
+              <SidebarTrigger />
             </div>
           </header>
           <main className="flex-1 overflow-y-auto p-8">
