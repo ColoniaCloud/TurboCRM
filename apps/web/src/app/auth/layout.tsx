@@ -1,17 +1,19 @@
 import type { ReactNode } from 'react'
-import './auth.css'
+import { Card, CardContent } from '@/components/ui/card'
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="auth-shell">
-      <div className="auth-brand">
-        <img src="/brand/icono.svg" alt="" className="auth-brand-icon" />
-        <span className="auth-brand-name">Colonia Cloud</span>
+    <div className="dark flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 text-foreground">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <img src="/brand/icono.svg" alt="" className="size-5 shrink-0" />
+        <span className="uppercase tracking-wider">Colonia Cloud</span>
       </div>
-      <div className="auth-card">
-        {children}
-      </div>
-      <p className="auth-footer">
+      <Card className="w-full max-w-sm">
+        <CardContent>
+          {children}
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
         &copy; {new Date().getFullYear()} Colonia Cloud. Todos los derechos reservados.
       </p>
     </div>

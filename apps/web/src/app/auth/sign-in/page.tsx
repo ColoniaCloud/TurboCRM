@@ -4,6 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from '@/lib/auth'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function SignInPage() {
   const router             = useRouter()
@@ -33,37 +37,41 @@ export default function SignInPage() {
 
   return (
     <>
-      <h1 className="auth-title">Iniciar sesión</h1>
-      <p className="auth-subtitle">Bienvenido de vuelta.</p>
+      <h1 className="font-heading text-xl font-medium">Iniciar sesión</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">Bienvenido de vuelta.</p>
 
-      {error && <div className="auth-error">{error}</div>}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="email">Email</label>
-          <input
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
             id="email" name="email" type="email"
-            className="auth-input" placeholder="juan@empresa.com"
+            placeholder="juan@empresa.com"
             required autoComplete="email"
           />
         </div>
 
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="password">Contraseña</label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password">Contraseña</Label>
+          <Input
             id="password" name="password" type="password"
-            className="auth-input" placeholder="Tu contraseña"
+            placeholder="Tu contraseña"
             required autoComplete="current-password"
           />
         </div>
 
-        <button type="submit" className="auth-btn" disabled={loading}>
+        <Button type="submit" className="mt-2 w-full" disabled={loading}>
           {loading ? 'Ingresando…' : 'Ingresar'}
-        </button>
+        </Button>
       </form>
 
-      <div className="auth-link-row">
-        ¿No tenés cuenta? <Link href="/auth/sign-up">Registrate</Link>
+      <div className="mt-4 text-center text-sm text-muted-foreground">
+        ¿No tenés cuenta? <Link href="/auth/sign-up" className="text-primary">Registrate</Link>
       </div>
     </>
   )

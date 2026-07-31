@@ -4,6 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signUp } from '@/lib/auth'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function SignUpPage() {
   const router             = useRouter()
@@ -34,46 +38,50 @@ export default function SignUpPage() {
 
   return (
     <>
-      <h1 className="auth-title">Crear cuenta</h1>
-      <p className="auth-subtitle">Empezá a organizar tu equipo de ventas hoy.</p>
+      <h1 className="font-heading text-xl font-medium">Crear cuenta</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">Empezá a organizar tu equipo de ventas hoy.</p>
 
-      {error && <div className="auth-error">{error}</div>}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="name">Nombre completo</label>
-          <input
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="name">Nombre completo</Label>
+          <Input
             id="name" name="name" type="text"
-            className="auth-input" placeholder="Juan García"
+            placeholder="Juan García"
             required autoComplete="name"
           />
         </div>
 
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="email">Email</label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
             id="email" name="email" type="email"
-            className="auth-input" placeholder="juan@empresa.com"
+            placeholder="juan@empresa.com"
             required autoComplete="email"
           />
         </div>
 
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="password">Contraseña</label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password">Contraseña</Label>
+          <Input
             id="password" name="password" type="password"
-            className="auth-input" placeholder="Mínimo 8 caracteres"
+            placeholder="Mínimo 8 caracteres"
             minLength={8} required autoComplete="new-password"
           />
         </div>
 
-        <button type="submit" className="auth-btn" disabled={loading}>
+        <Button type="submit" className="mt-2 w-full" disabled={loading}>
           {loading ? 'Creando cuenta…' : 'Crear cuenta'}
-        </button>
+        </Button>
       </form>
 
-      <div className="auth-link-row">
-        ¿Ya tenés cuenta? <Link href="/auth/sign-in">Iniciá sesión</Link>
+      <div className="mt-4 text-center text-sm text-muted-foreground">
+        ¿Ya tenés cuenta? <Link href="/auth/sign-in" className="text-primary">Iniciá sesión</Link>
       </div>
     </>
   )
