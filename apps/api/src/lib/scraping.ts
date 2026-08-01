@@ -1,3 +1,5 @@
+import { SCRAPING_MIN_RADIUS_METERS, SCRAPING_MAX_RADIUS_METERS } from '@colonia-crm/shared'
+
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY
 const ANTHROPIC_API_KEY   = process.env.ANTHROPIC_API_KEY
 const CLAUDE_MODEL        = 'claude-sonnet-5'
@@ -33,7 +35,31 @@ type GooglePlacesResponse = {
   }[]
 }
 
-export async function searchPlaces(query: string): Promise<PlaceResult[]> {
+export type PlaceSearchParams = {
+  category:     string
+  country?:     string
+  city?:        string
+  neighborhood?: string
+  lat:          number
+  lng:          number
+  radiusMeters: number
+}
+
+function buildTextQuery(params: PlaceSearchParams): string {
+  // Texto de contexto además de la restricción geográfica dura: aunque el
+  // círculo ya filtra por ubicación, sumar barrio/ciudad/país a la query
+  // ayuda a la relevancia del ranking de Places (mismo criterio que
+  // recomienda Google para searchText + locationRestriction combinados).
+  const locality = [params.neighborhood, params.city, params.country].filter(Boolean).join(', ')
+  return locality ? `${params.category} en ${locality}` : params.category
+}
+
+function clampRadius(radiusMeters: number): number {
+  if (!Number.isFinite(radiusMeters)) return SCRAPING_MAX_RADIUS_METERS
+  return Math.min(SCRAPING_MAX_RADIUS_METERS, Math.max(SCRAPING_MIN_RADIUS_METERS, radiusMeters))
+}
+
+export async function searchPlaces(params: PlaceSearchParams): Promise<PlaceResult[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new Error('GOOGLE_MAPS_API_KEY no está configurada')
   }
@@ -56,7 +82,25 @@ export async function searchPlaces(query: string): Promise<PlaceResult[]> {
         'places.userRatingCount',
       ].join(','),
     },
-    body: JSON.stringify({ textQuery: query, maxResultCount: 20, languageCode: 'es' }),
+    body: JSON.stringify({
+      textQuery:      buildTextQuery(params),
+      maxResultCount: 20,
+      languageCode:   'es',
+      // searchText.locationRestriction solo admite "rectangle", no
+      // "circle" (confirmado contra la API real: la devuelve 400
+      // "Unknown name 'circle' at location_restriction") — la restricción
+      // dura por círculo solo existe en searchNearby, que no acepta texto
+      // libre de rubro. locationBias con círculo sí es soportado: no
+      // filtra 100% duro (Google puede colar algo muy relevante apenas
+      // afuera del radio), pero es el mecanismo real disponible para
+      // "buscar por rubro + área circular" combinados.
+      locationBias: {
+        circle: {
+          center: { latitude: params.lat, longitude: params.lng },
+          radius:  clampRadius(params.radiusMeters),
+        },
+      },
+    }),
   })
 
   if (!res.ok) {
@@ -407,8 +451,8 @@ export type EnrichedPlace = PlaceResult & {
   socialLinks: SocialLink[]
 }
 
-export async function searchAndEnrich(query: string): Promise<EnrichedPlace[]> {
-  const places = await searchPlaces(query)
+export async function searchAndEnrich(params: PlaceSearchParams): Promise<EnrichedPlace[]> {
+  const places = await searchPlaces(params)
   const results: EnrichedPlace[] = []
 
   // Secuencial entre negocios (evita ráfagas de 20 requests simultáneos

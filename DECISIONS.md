@@ -5,6 +5,50 @@ Formato: contexto → decisión → razón.
 
 ---
 
+## 2026-07-31 — Prospección: búsqueda estructurada + mapa interactivo, `locationBias` no `locationRestriction`
+
+**Contexto:** El input de texto libre de `/app/scraping` ("restaurantes en
+Colonia del Sacramento") pasa a un formulario estructurado — Rubro / País /
+Ciudad / Barrio / Radio de búsqueda — con un mapa interactivo sincronizado
+en ambos sentidos: completar los campos mueve el mapa (geocode), mover el
+mapa o ajustar el radio completa los campos (reverse geocode).
+
+**Decisiones:**
+1. **`locationBias`, no `locationRestriction`, en `places:searchText`**.
+   El plan original asumía que `locationRestriction` con `circle` daba un
+   filtro geográfico duro — probado contra la API real, devuelve 400
+   ("Unknown name 'circle' at location_restriction"): `locationRestriction`
+   en Text Search (New) solo admite `rectangle`, el `circle` únicamente
+   existe en `locationBias`. Consecuencia real: el "Radio de búsqueda" es
+   una preferencia de ranking, no un filtro absoluto — Google puede colar
+   un resultado muy relevante apenas afuera del círculo. Alternativas
+   descartadas: `searchNearby` sí soporta `locationRestriction` circular,
+   pero no acepta texto libre de rubro (solo `includedTypes` del enum fijo
+   de Google) — no sirve para "rubro" como lo pidió el usuario.
+2. **Círculo del mapa no interactivo** (`editable:false, draggable:false,
+   clickable:false`): con radios de varios km el relleno del círculo cubre
+   casi todo el viewport, y el modo `editable` de Google intercepta drags
+   que empiezan sobre el relleno, no solo el borde — competiría con
+   arrastrar el mapa para reposicionar. El centro del círculo sigue al
+   centro del mapa (pin fijo por CSS, patrón tipo selector de ubicación de
+   apps de delivery); el radio se ajusta por el input numérico, que
+   también actualiza el círculo en vivo.
+3. **Geocoding 100% cliente** vía `google.maps.Geocoder` (librería
+   `geocoding` del loader), no un endpoint proxy nuevo en el backend — ya
+   viene con el mapa cargado, evita una ruta más solo para esto.
+4. **La `GOOGLE_MAPS_API_KEY` viaja al cliente por `GET /api/scraping/status`**
+   (detrás de `authMiddleware`), no por una var `NEXT_PUBLIC_*` — single
+   source of truth en `apps/api/.env`. **Tradeoff de seguridad real:** la
+   key es la misma que usa el servidor para Places API y actualmente no
+   tiene restricción de HTTP-referrer en Google Cloud Console — cualquier
+   usuario logueado del CRM puede leerla del network tab y usarla fuera de
+   esta app contra cualquier producto de Google que tenga habilitado, hasta
+   la cuota del proyecto. Es un ensanchamiento real de exposición respecto
+   a hoy (antes la key nunca salía del servidor), acotado a "cualquier
+   compañero con acceso al CRM" en vez de "cualquiera en internet". La
+   mitigación real (restringir la key por referrer) queda fuera de este
+   repo — requiere acceso a Google Cloud Console que el agente no tiene.
+
 ## 2026-07-23 — Módulo "Proyectos" por contacto (hosting, dominio, mantenimiento)
 
 **Contexto:** El admin necesitaba organizar, dentro de la ficha de cada

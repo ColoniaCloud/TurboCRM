@@ -13,22 +13,55 @@ const scrapingRoutes = new Hono<{ Variables: HonoVariables }>()
 scrapingRoutes.use('*', authMiddleware)
 
 scrapingRoutes.get('/status', (c) => {
-  return c.json({ status: 'ok', configured: isScrapingConfigured() })
+  const configured = isScrapingConfigured()
+  return c.json({
+    status: 'ok',
+    configured,
+    // Detrás de authMiddleware — solo la ve un usuario ya logueado del
+    // CRM, no cualquiera en internet (a diferencia de una var
+    // NEXT_PUBLIC_*). Hace falta en el cliente para el mapa interactivo:
+    // Maps JavaScript API tiene que cargarse en el browser sí o sí.
+    mapsApiKey: configured ? process.env.GOOGLE_MAPS_API_KEY ?? null : null,
+  })
 })
 
+type SearchBody = {
+  category?:      string
+  country?:       string
+  city?:          string
+  neighborhood?:  string
+  lat?:           number
+  lng?:           number
+  radiusMeters?:  number
+}
+
 scrapingRoutes.post('/search', async (c) => {
-  const body  = await c.req.json().catch(() => null) as { query?: string } | null
-  const query = body?.query?.trim()
+  const body     = await c.req.json().catch(() => null) as SearchBody | null
+  const category = body?.category?.trim()
+  const lat      = Number(body?.lat)
+  const lng      = Number(body?.lng)
+  const radiusMeters = Number(body?.radiusMeters)
 
   if (!isScrapingConfigured()) {
     throw new HTTPException(400, { message: 'El scraping todavía no está configurado (GOOGLE_MAPS_API_KEY / ANTHROPIC_API_KEY)' })
   }
-  if (!query) {
-    throw new HTTPException(400, { message: 'Escribí qué buscar, ej. "restaurantes en Colonia del Sacramento"' })
+  if (!category) {
+    throw new HTTPException(400, { message: 'Completá el rubro a buscar, ej. "restaurantes"' })
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(radiusMeters)) {
+    throw new HTTPException(400, { message: 'Ubicá el área de búsqueda en el mapa' })
   }
 
   try {
-    const items = await searchAndEnrich(query)
+    const items = await searchAndEnrich({
+      category,
+      country:      body?.country?.trim() || undefined,
+      city:         body?.city?.trim() || undefined,
+      neighborhood: body?.neighborhood?.trim() || undefined,
+      lat,
+      lng,
+      radiusMeters,
+    })
     return c.json({ status: 'ok', items })
   } catch (err) {
     throw new HTTPException(502, { message: err instanceof Error ? err.message : 'No se pudo completar la búsqueda' })

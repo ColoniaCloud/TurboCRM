@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SCRAPING_DEFAULT_CENTER, SCRAPING_DEFAULT_RADIUS_METERS } from '@colonia-crm/shared'
 import { useApp } from '../app-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,10 +10,21 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { LocationMapPicker, type LocationValue } from './location-map-picker'
 
 type ScrapingStatus = {
   status: 'ok'
   configured: boolean
+  mapsApiKey: string | null
+}
+
+const DEFAULT_LOCATION: LocationValue = {
+  country:      '',
+  city:         '',
+  neighborhood: '',
+  lat:          SCRAPING_DEFAULT_CENTER.lat,
+  lng:          SCRAPING_DEFAULT_CENTER.lng,
+  radiusMeters: SCRAPING_DEFAULT_RADIUS_METERS,
 }
 
 type PlaceAnalysis = {
@@ -50,9 +62,11 @@ export default function ScrapingPage() {
 
   const [statusLoading, setStatusLoading] = useState(true)
   const [configured, setConfigured]       = useState(false)
+  const [mapsApiKey, setMapsApiKey]       = useState<string | null>(null)
   const [statusError, setStatusError]     = useState<string | null>(null)
 
-  const [query, setQuery]     = useState('')
+  const [category, setCategory] = useState('')
+  const [location, setLocation] = useState<LocationValue>(DEFAULT_LOCATION)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [results, setResults] = useState<EnrichedPlace[] | null>(null)
@@ -77,6 +91,7 @@ export default function ScrapingPage() {
         if (cancelled) return
 
         setConfigured(body.configured)
+        setMapsApiKey(body.mapsApiKey)
         setStatusError(null)
       } catch (err) {
         if (cancelled) return
@@ -92,7 +107,7 @@ export default function ScrapingPage() {
 
   async function handleSearch(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const trimmed = query.trim()
+    const trimmed = category.trim()
     if (!trimmed) return
 
     setSearching(true)
@@ -103,7 +118,15 @@ export default function ScrapingPage() {
     try {
       const res = await apiFetch('/api/scraping/search', {
         method: 'POST',
-        body: JSON.stringify({ query: trimmed }),
+        body: JSON.stringify({
+          category:     trimmed,
+          country:      location.country || undefined,
+          city:         location.city || undefined,
+          neighborhood: location.neighborhood || undefined,
+          lat:          location.lat,
+          lng:          location.lng,
+          radiusMeters: location.radiusMeters,
+        }),
       })
 
       const body = await res.json().catch(() => null) as
@@ -218,17 +241,20 @@ export default function ScrapingPage() {
         <>
           <Card>
             <CardContent>
-              <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-4">
-                <div className="flex flex-1 min-w-48 flex-col gap-1.5">
-                  <Label htmlFor="scraping-query">¿Qué buscás?</Label>
+              <form onSubmit={handleSearch} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5 sm:max-w-80">
+                  <Label htmlFor="scraping-category">Rubro</Label>
                   <Input
-                    id="scraping-query"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="restaurantes en Colonia del Sacramento"
+                    id="scraping-category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="restaurantes"
                   />
                 </div>
-                <Button type="submit" disabled={searching || !query.trim()}>
+
+                <LocationMapPicker apiKey={mapsApiKey} value={location} onChange={setLocation} />
+
+                <Button type="submit" disabled={searching || !category.trim()} className="self-start">
                   {searching ? 'Buscando…' : 'Buscar'}
                 </Button>
               </form>

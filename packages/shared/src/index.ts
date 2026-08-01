@@ -30,6 +30,18 @@ export type PaymentRecurrence = 'none' | 'monthly' | 'annual'
 export type ProjectReminderKind       = 'hosting' | 'domain' | 'maintenance' | 'other'
 export type ProjectReminderRecurrence = 'none' | 'monthly' | 'quarterly' | 'biannual' | 'annual'
 
+// Búsqueda geográfica de prospección (scraping) — límites de
+// `locationRestriction.circle` de Places API (New): tope real de Google es
+// 50000m. Constantes compartidas para que el clamp del front y el del
+// back no se desincronicen.
+export const SCRAPING_MIN_RADIUS_METERS     = 500
+export const SCRAPING_MAX_RADIUS_METERS     = 50_000
+export const SCRAPING_DEFAULT_RADIUS_METERS = 5_000
+
+// Colonia del Sacramento, Uruguay — sede de la agencia, centro por default
+// del mapa de prospección cuando todavía no se completó ninguna ubicación.
+export const SCRAPING_DEFAULT_CENTER = { lat: -34.4623, lng: -57.8400 }
+
 // Timeline unificado del contacto. Los primeros 4 valores son los que esta
 // fase implementa; el resto queda declarado como preparación para fases
 // futuras (integración de WhatsApp, email, cobros y scraping/enriquecimiento).
