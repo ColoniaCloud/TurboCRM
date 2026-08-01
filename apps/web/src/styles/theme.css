@@ -219,16 +219,20 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--focus-ring);
 }
 
-/* Con el acento negro, los links necesitan el subrayado para
-   distinguirse del texto común — sutil en reposo, pleno en hover. */
+/* Los links usan el color de acento del tema activo (Tailwind
+   --primary, definido en globals.css) en vez de --color-accent fijo:
+   este archivo legado asume fondo claro/acento negro, pero el CRM
+   corre en tema oscuro permanente — con --color-accent el texto de
+   los links quedaba negro sobre fondo oscuro (ilegible). El subrayado
+   sigue distinguiéndolos del texto común — sutil en reposo, pleno en
+   hover. */
 a {
-  color: var(--color-accent);
+  color: var(--primary);
   text-decoration: underline;
-  text-decoration-color: rgba(0, 0, 0, 0.25);
+  text-decoration-color: color-mix(in oklch, currentColor 30%, transparent);
   text-underline-offset: 2px;
 }
 a:hover {
-  color: var(--color-accent-hover);
   text-decoration-color: currentColor;
 }
 

@@ -12,7 +12,6 @@ import { AppProvider, type Me } from './app-context'
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -84,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || !me) {
     return (
-      <div className="dark flex min-h-svh items-center justify-center bg-background text-foreground">
+      <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
         <p className="text-sm text-muted-foreground">Cargando…</p>
       </div>
     )
@@ -92,13 +91,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AppProvider me={me}>
-      <SidebarProvider className="dark">
+      <SidebarProvider>
         <SidebarInset>
-          <header className="flex h-12 items-center justify-end border-b px-6">
+          <header className="flex h-12 items-center justify-between border-b px-6">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <img src="/brand/icono.svg" alt="" className="size-5 shrink-0 brightness-0 invert" />
+              <span className="font-bold">Colonia Cloud</span>
+            </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">{me.user.email}</span>
               <Button variant="outline" size="sm" onClick={handleSignOut}>Cerrar sesión</Button>
-              <SidebarTrigger />
+              <SidebarTrigger className="text-primary hover:text-primary" />
             </div>
           </header>
           <main className="flex-1 overflow-y-auto p-8">
@@ -107,12 +110,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarInset>
 
         <Sidebar side="right" collapsible="icon">
-          <SidebarHeader>
-            <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-muted-foreground">
-              <img src="/brand/icono.svg" alt="" className="size-5 shrink-0" />
-              <span className="group-data-[collapsible=icon]:hidden">Colonia Cloud</span>
-            </div>
-          </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) => (
